@@ -45,7 +45,7 @@ Mais detalhes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ### Tecnologias
 
-Next.js 15, React 19, TypeScript, Tailwind CSS, Supabase Auth, PostgreSQL, Recharts e Lucide.
+Next.js 16, React 19, TypeScript, Tailwind CSS, Supabase Auth, PostgreSQL, Recharts e Lucide.
 
 ### Executar localmente
 
@@ -88,7 +88,7 @@ It turns fragmented automation data into an interface that helps operators under
 
 ### Stack
 
-Next.js 15, React 19, TypeScript, Tailwind CSS, Supabase Auth, PostgreSQL, Recharts, and Lucide.
+Next.js 16, React 19, TypeScript, Tailwind CSS, Supabase Auth, PostgreSQL, Recharts, and Lucide.
 
 ### Local development
 
