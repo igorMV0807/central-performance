@@ -1,0 +1,1051 @@
+{
+  "name": "[PP] 02 - Motor de Recuperação (Produção)",
+  "active": false,
+  "description": "Motor PerfectPay isolado em produção: reserva atômica contra duplicidade, envia até 3 e-mails pelo Gmail, registra sucesso/erro e usa rastreamento de cliques. Compras aprovadas encerram a jornada.",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Sao_Paulo",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "executionTimeout": 180,
+    "saveDataSuccessExecution": "all"
+  },
+  "nodes": [
+    {
+      "name": "A cada 10 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 10
+            }
+          ]
+        },
+        "misfirePolicy": "coalesce",
+        "misfireGraceSeconds": 600
+      }
+    },
+    {
+      "name": "Reservar recuperações vencidas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "p_limit": 50
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Modo produção está ativo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ String($json.mode || '').trim().toLowerCase() }}",
+              "rightValue": "live",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Qual etapa enviar?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ Number($json.step || 0) }}",
+                    "rightValue": 1,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Etapa 1"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ Number($json.step || 0) }}",
+                    "rightValue": 2,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Etapa 2"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ Number($json.step || 0) }}",
+                    "rightValue": 3,
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Etapa 3"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      }
+    },
+    {
+      "name": "Preparar E-mail - Etapa 1",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1200,
+        -520
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "email_subject",
+              "value": "={{ String($json.subject || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_preheader",
+              "value": "={{ String($json.preheader || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_body",
+              "value": "={{ String($json.body || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_button",
+              "value": "={{ String($json.button_text || 'Continuar meu pedido').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_footer",
+              "value": "={{ String($json.footer || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true,
+        "mode": "manual"
+      }
+    },
+    {
+      "name": "Enviar E-mail - Etapa 1",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        -520
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.customer_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "html",
+        "message": "={{ (() => { const esc = (v) => String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); const render = (v) => { let h = esc(v).replace(/\\r?\\n\\r?\\n/g,'</p><p style=\"margin:0 0 14px\">').replace(/\\r?\\n/g,'<br>'); h = h.replace(/R\\$ 29,90/g,'<span style=\"text-decoration:line-through;color:#6b7280\">R$ 29,90</span>');  return '<p style=\"margin:0 0 14px\">' + h + '</p>'; }; const p = $json; const preheader = esc(p.email_preheader); const body = render(p.email_body); const footer = render(p.email_footer); const button = esc(p.email_button); const token = String(p.tracking_token || '').trim(); const checkout = String(p.checkout_url || 'https://example.invalid'); const destination = checkout.includes('CHECKOUT_EMAIL2') ? 'email2' : checkout.includes('CHECKOUT_EMAIL3') ? 'email3' : checkout.includes('CHECKOUT_MAIN') ? 'main' : ''; const tracked = token ? 'https://example.invalid' + encodeURIComponent(token) + (destination ? '&d=' + destination : '') : checkout; const url = tracked.replace(/&/g,'&amp;').replace(/\"/g,'&quot;'); return '<div style=\"display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all\">' + preheader + '</div><div style=\"font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#1f2937;line-height:1.65\"><div style=\"background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:28px\"><div style=\"font-size:26px;margin-bottom:12px\">🙏</div><div style=\"font-size:16px\">' + body + '</div><div style=\"margin:28px 0 18px;text-align:center\"><a href=\"' + url + '\" style=\"display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px\">' + button + '</a></div><div style=\"font-size:12px;color:#6b7280\">' + footer + '</div></div></div>'; })() }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Registrar Sucesso - Etapa 1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        -600
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "perfectpay_email_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Preparar E-mail - Etapa 1').item.json.email_log_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 1').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "preheader",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 1').item.json.email_preheader }}"
+            },
+            {
+              "fieldId": "gmail_message_id",
+              "fieldValue": "={{ $('Enviar E-mail - Etapa 1').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "SENT"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Registrar Erro - Etapa 1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        -400
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "perfectpay_email_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Preparar E-mail - Etapa 1').item.json.email_log_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 1').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "preheader",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 1').item.json.email_preheader }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "FAILED"
+            },
+            {
+              "fieldId": "error_message",
+              "fieldValue": "={{ String($json.error?.message || $json.message || 'Falha no envio pelo Gmail').slice(0,1000) }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Preparar E-mail - Etapa 2",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1200,
+        0
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "email_subject",
+              "value": "={{ String($json.subject || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_preheader",
+              "value": "={{ String($json.preheader || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_body",
+              "value": "={{ String($json.body || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_button",
+              "value": "={{ String($json.button_text || 'Continuar meu pedido').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_footer",
+              "value": "={{ String($json.footer || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true,
+        "mode": "manual"
+      }
+    },
+    {
+      "name": "Enviar E-mail - Etapa 2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.customer_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "html",
+        "message": "={{ (() => { const esc = (v) => String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); const render = (v) => { const headings = []; let h = esc(v); h = h.replace(/^###\\s+\\*\\*([^*]+)\\*\\*$/gm, (_, t) => '@@HEADING_' + (headings.push(t) - 1) + '@@'); h = h.replace(/\\*\\*([^*]+)\\*\\*/g,'<strong style=\"color:#111827\">$1</strong>'); h = h.replace(/\\r?\\n\\r?\\n/g,'</p><p style=\"margin:0 0 14px\">').replace(/\\r?\\n/g,'<br>'); h = h.replace(/@@HEADING_(\\d+)@@/g, (_, i) => '<span style=\"display:block;font-size:20px;line-height:1.35;color:#111827;font-weight:700\">' + headings[Number(i)] + '</span>'); h = h.replace(/R\\$ 29,90/g,'<span style=\"text-decoration:line-through;color:#6b7280\">R$ 29,90</span>'); h = h.replace(/R\\$ 25,90/g, '<strong style=\"font-size:22px;color:#c2410c\">R$ 25,90</strong>'); return '<p style=\"margin:0 0 14px\">' + h + '</p>'; }; const p = $json; const preheader = esc(p.email_preheader); const body = render(p.email_body); const footer = render(p.email_footer); const button = esc(p.email_button); const token = String(p.tracking_token || '').trim(); const checkout = String(p.checkout_url || 'https://example.invalid'); const destination = checkout.includes('CHECKOUT_EMAIL2') ? 'email2' : checkout.includes('CHECKOUT_EMAIL3') ? 'email3' : checkout.includes('CHECKOUT_MAIN') ? 'main' : ''; const tracked = token ? 'https://example.invalid' + encodeURIComponent(token) + (destination ? '&d=' + destination : '') : checkout; const url = tracked.replace(/&/g,'&amp;').replace(/\"/g,'&quot;'); return '<div style=\"display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all\">' + preheader + '</div><div style=\"font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#1f2937;line-height:1.65\"><div style=\"background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:28px\"><div style=\"font-size:26px;margin-bottom:12px\">🙏</div><div style=\"font-size:16px\">' + body + '</div><div style=\"margin:28px 0 18px;text-align:center\"><a href=\"' + url + '\" style=\"display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px\">' + button + '</a></div><div style=\"font-size:12px;color:#6b7280\">' + footer + '</div></div></div>'; })() }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Registrar Sucesso - Etapa 2",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        -80
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "perfectpay_email_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Preparar E-mail - Etapa 2').item.json.email_log_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 2').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "preheader",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 2').item.json.email_preheader }}"
+            },
+            {
+              "fieldId": "gmail_message_id",
+              "fieldValue": "={{ $('Enviar E-mail - Etapa 2').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "SENT"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Registrar Erro - Etapa 2",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        120
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "perfectpay_email_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Preparar E-mail - Etapa 2').item.json.email_log_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 2').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "preheader",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 2').item.json.email_preheader }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "FAILED"
+            },
+            {
+              "fieldId": "error_message",
+              "fieldValue": "={{ String($json.error?.message || $json.message || 'Falha no envio pelo Gmail').slice(0,1000) }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Preparar E-mail - Etapa 3",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1200,
+        520
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "email_subject",
+              "value": "={{ String($json.subject || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_preheader",
+              "value": "={{ String($json.preheader || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_body",
+              "value": "={{ String($json.body || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_button",
+              "value": "={{ String($json.button_text || 'Continuar meu pedido').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            },
+            {
+              "name": "email_footer",
+              "value": "={{ String($json.footer || '').split('[nome]').join(String($json.customer_name || 'cliente').trim() || 'cliente') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {},
+        "includeOtherFields": true,
+        "mode": "manual"
+      }
+    },
+    {
+      "name": "Enviar E-mail - Etapa 3",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        520
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.customer_email }}",
+        "subject": "={{ $json.email_subject }}",
+        "emailType": "html",
+        "message": "={{ (() => { const esc = (v) => String(v || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;'); const render = (v) => { const headings = []; let h = esc(v); h = h.replace(/^###\\s+\\*\\*([^*]+)\\*\\*$/gm, (_, t) => '@@HEADING_' + (headings.push(t) - 1) + '@@'); h = h.replace(/\\*\\*([^*]+)\\*\\*/g,'<strong style=\"color:#111827\">$1</strong>'); h = h.replace(/\\r?\\n\\r?\\n/g,'</p><p style=\"margin:0 0 14px\">').replace(/\\r?\\n/g,'<br>'); h = h.replace(/@@HEADING_(\\d+)@@/g, (_, i) => '<span style=\"display:block;font-size:20px;line-height:1.35;color:#111827;font-weight:700\">' + headings[Number(i)] + '</span>'); h = h.replace(/R\\$ 29,90/g,'<span style=\"text-decoration:line-through;color:#6b7280\">R$ 29,90</span>'); h = h.replace(/R\\$ 23,90/g, '<strong style=\"font-size:22px;color:#c2410c\">R$ 23,90</strong>'); return '<p style=\"margin:0 0 14px\">' + h + '</p>'; }; const p = $json; const preheader = esc(p.email_preheader); const body = render(p.email_body); const footer = render(p.email_footer); const button = esc(p.email_button); const token = String(p.tracking_token || '').trim(); const checkout = String(p.checkout_url || 'https://example.invalid'); const destination = checkout.includes('CHECKOUT_EMAIL2') ? 'email2' : checkout.includes('CHECKOUT_EMAIL3') ? 'email3' : checkout.includes('CHECKOUT_MAIN') ? 'main' : ''; const tracked = token ? 'https://example.invalid' + encodeURIComponent(token) + (destination ? '&d=' + destination : '') : checkout; const url = tracked.replace(/&/g,'&amp;').replace(/\"/g,'&quot;'); return '<div style=\"display:none;font-size:1px;color:#ffffff;line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;mso-hide:all\">' + preheader + '</div><div style=\"font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#1f2937;line-height:1.65\"><div style=\"background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:28px\"><div style=\"font-size:26px;margin-bottom:12px\">🙏</div><div style=\"font-size:16px\">' + body + '</div><div style=\"margin:28px 0 18px;text-align:center\"><a href=\"' + url + '\" style=\"display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:10px\">' + button + '</a></div><div style=\"font-size:12px;color:#6b7280\">' + footer + '</div></div></div>'; })() }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Registrar Sucesso - Etapa 3",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        440
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "perfectpay_email_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Preparar E-mail - Etapa 3').item.json.email_log_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 3').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "preheader",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 3').item.json.email_preheader }}"
+            },
+            {
+              "fieldId": "gmail_message_id",
+              "fieldValue": "={{ $('Enviar E-mail - Etapa 3').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "SENT"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Registrar Erro - Etapa 3",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        640
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "perfectpay_email_logs",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Preparar E-mail - Etapa 3').item.json.email_log_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 3').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "preheader",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 3').item.json.email_preheader }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "FAILED"
+            },
+            {
+              "fieldId": "error_message",
+              "fieldValue": "={{ String($json.error?.message || $json.message || 'Falha no envio pelo Gmail').slice(0,1000) }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Produção PerfectPay",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -260
+      ],
+      "parameters": {
+        "content": "## PerfectPay — recuperação em produção\nReserva atômica no Supabase, 3 contatos, Gmail, rastreamento de cliques e bloqueio automático após compra aprovada.\n\nFalhas ficam como ERROR para revisão manual; não há reenvio automático que possa duplicar mensagens.",
+        "height": 210,
+        "width": 1740,
+        "color": 5
+      }
+    },
+    {
+      "name": "Buscar Copy do Laboratório - Etapa 1",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        -520
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "p_email_log_id",
+              "value": "={{ Number($json.email_log_id) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Buscar Copy do Laboratório - Etapa 2",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "p_email_log_id",
+              "value": "={{ Number($json.email_log_id) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Buscar Copy do Laboratório - Etapa 3",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        960,
+        520
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "keypair",
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "p_email_log_id",
+              "value": "={{ Number($json.email_log_id) }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "A cada 10 minutos": {
+      "main": [
+        [
+          {
+            "node": "Reservar recuperações vencidas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar recuperações vencidas": {
+      "main": [
+        [
+          {
+            "node": "Modo produção está ativo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Modo produção está ativo?": {
+      "main": [
+        [
+          {
+            "node": "Qual etapa enviar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qual etapa enviar?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Copy do Laboratório - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Copy do Laboratório - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Copy do Laboratório - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar E-mail - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Enviar E-mail - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar E-mail - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Registrar Sucesso - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar Erro - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar E-mail - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Enviar E-mail - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar E-mail - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Registrar Sucesso - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar Erro - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar E-mail - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Enviar E-mail - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar E-mail - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Registrar Sucesso - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar Erro - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Copy do Laboratório - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Preparar E-mail - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Copy do Laboratório - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Preparar E-mail - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Copy do Laboratório - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Preparar E-mail - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "name": "Controle e reserva",
+      "nodeNames": [
+        "Reservar recuperações vencidas",
+        "Modo produção está ativo?",
+        "Qual etapa enviar?"
+      ],
+      "description": "Reserva atômica, trava de modo e roteamento por etapa."
+    },
+    {
+      "name": "Contato 1",
+      "nodeNames": [
+        "Preparar E-mail - Etapa 1",
+        "Enviar E-mail - Etapa 1",
+        "Registrar Sucesso - Etapa 1",
+        "Registrar Erro - Etapa 1"
+      ],
+      "description": "Prepara, envia e registra o primeiro contato."
+    },
+    {
+      "name": "Contato 2",
+      "nodeNames": [
+        "Preparar E-mail - Etapa 2",
+        "Enviar E-mail - Etapa 2",
+        "Registrar Sucesso - Etapa 2",
+        "Registrar Erro - Etapa 2"
+      ],
+      "description": "Prepara, envia e registra o segundo contato."
+    },
+    {
+      "name": "Contato 3",
+      "nodeNames": [
+        "Preparar E-mail - Etapa 3",
+        "Enviar E-mail - Etapa 3",
+        "Registrar Sucesso - Etapa 3",
+        "Registrar Erro - Etapa 3"
+      ],
+      "description": "Prepara, envia e registra o terceiro contato."
+    }
+  ],
+  "tags": []
+}

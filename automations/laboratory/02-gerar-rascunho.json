@@ -1,0 +1,501 @@
+{
+  "name": "[LAB] Copys - Gerar rascunho PerfectPay",
+  "active": false,
+  "description": "Gera rascunhos de copy PerfectPay com liberdade criativa e revisão humana obrigatória. O teste só nasce após aprovação. Agenda pausada até a credencial Gemini ser conectada.",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Sao_Paulo",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "binaryMode": "separate"
+  },
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Executar agora",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1088,
+        80
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "copy_laboratory_settings",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            },
+            {
+              "keyName": "automatic_generation",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "name": "Carregar configurações",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -800,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "copy_variants",
+        "returnAll": true,
+        "orderBy": "platform.asc,version_number.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "platform",
+              "condition": "eq",
+              "keyValue": "perfectpay"
+            },
+            {
+              "keyName": "role",
+              "condition": "eq",
+              "keyValue": "champion"
+            }
+          ]
+        }
+      },
+      "name": "Carregar campeãs PerfectPay",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -528,
+        192
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "copy_laboratory_assets",
+        "returnAll": true,
+        "orderBy": "updated_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "is_active",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "name": "Carregar regras e vídeo",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        192
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "copy_experiments",
+        "returnAll": true,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "platform",
+              "condition": "eq",
+              "keyValue": "perfectpay"
+            }
+          ]
+        }
+      },
+      "name": "Carregar testes PerfectPay",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        48,
+        192
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "copy_variants",
+        "returnAll": true,
+        "orderBy": "version_number.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "platform",
+              "condition": "eq",
+              "keyValue": "perfectpay"
+            }
+          ]
+        }
+      },
+      "name": "Carregar histórico PerfectPay",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        320,
+        192
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const settings = $('Carregar configurações').first().json;\nconst champions = $('Carregar campeãs PerfectPay').all().map((item) => item.json)\n  .filter((row) => row.id && !row.archived_at && String(row.platform || '') === 'perfectpay');\nconst assets = $('Carregar regras e vídeo').all()\\n  .filter((item) => String(item.json.asset_type || '') !== 'brand_rules')\\n  .map((item) => ({\n  tipo: item.json.asset_type,\n  titulo: item.json.title,\n  conteudo: item.json.content,\n}));\nconst allExperiments = $('Carregar testes PerfectPay').all().map((item) => item.json)\n  .filter((row) => String(row.platform || '') === 'perfectpay');\nconst openStatuses = new Set(['shadow', 'manual_review', 'ready', 'running']);\nconst openExperiments = allExperiments.filter((row) => openStatuses.has(String(row.status || '')));\nconst history = $('Carregar histórico PerfectPay').all().map((item) => item.json)\n  .filter((row) => String(row.platform || '') === 'perfectpay');\nconst pendingDrafts = history.filter((row) =>\n  String(row.status || '') === 'qa_passed' &&\n  row.approval_required === true &&\n  !row.approved_at &&\n  !row.archived_at\n);\n\nconst priority = [\n  'ABANDONED:1','WAITING_PAYMENT:1','ABANDONED:2','ABANDONED:3',\n  'WAITING_PAYMENT:2','WAITING_PAYMENT:3','CANCELED:1','CANCELED:2',\n  'CANCELED:3','EXPIRED:1','EXPIRED:2','EXPIRED:3',\n  'DELAYED:1','DELAYED:2','DELAYED:3',\n];\nconst rank = new Map(priority.map((key, index) => [key, index]));\nconst ordered = [...champions].sort((a, b) => {\n  const aKey = String(a.recovery_flow || '') + ':' + Number(a.step || 0);\n  const bKey = String(b.recovery_flow || '') + ':' + Number(b.step || 0);\n  return (rank.get(aKey) ?? 999) - (rank.get(bKey) ?? 999);\n});\nconst baseReference = ordered.find((candidate) => {\n  const sameSlot = (row) =>\n    String(row.recovery_flow || '') === String(candidate.recovery_flow || '') &&\n    Number(row.step || 0) === Number(candidate.step || 0);\n  return !openExperiments.some(sameSlot) && !pendingDrafts.some(sameSlot);\n});\nif (!baseReference?.id) return [];\n\nconst latestFinished = allExperiments\n  .filter((experiment) =>\n    String(experiment.recovery_flow || '') === String(baseReference.recovery_flow || '') &&\n    Number(experiment.step || 0) === Number(baseReference.step || 0) &&\n    ['paused', 'completed', 'cancelled'].includes(String(experiment.status || ''))\n  )\n  .sort((a, b) => new Date(b.ended_at || b.updated_at || b.created_at).getTime() - new Date(a.ended_at || a.updated_at || a.created_at).getTime())[0];\n\nconst latestReason = String(latestFinished?.decision_reason || '');\nconst preferredReferenceId = latestReason.startsWith('[TRIAGEM] Versão B promissora:')\n  ? latestFinished?.challenger_variant_id\n  : latestReason.startsWith('[TRIAGEM] Versão A promissora:')\n    ? latestFinished?.champion_variant_id\n    : latestReason.startsWith('[TRIAGEM]')\n      ? latestFinished?.challenger_variant_id\n      : baseReference.id;\nconst reference = history.find((row) => String(row.id) === String(preferredReferenceId || '')) || baseReference;\n\nconst slotHistory = history.filter((row) =>\n  String(row.recovery_flow || '') === String(reference.recovery_flow || '') &&\n  Number(row.step || 0) === Number(reference.step || 0)\n);\nconst nextVersion = Math.max(0, ...slotHistory.map((row) => Number(row.version_number || 0))) + 1;\nconst flowLabels = {\n  ABANDONED: 'carrinho abandonado',\n  WAITING_PAYMENT: 'aguardando pagamento',\n  CANCELED: 'compra cancelada',\n  DELAYED: 'pagamento atrasado',\n  EXPIRED: 'pagamento expirado',\n};\nconst flow = String(reference.recovery_flow || '');\nconst step = Number(reference.step || 0);\nconst displayedPrice = Number(reference.displayed_price || 0);\nconst priceText = displayedPrice > 0\n  ? displayedPrice.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })\n  : '';\nconst offerRule = displayedPrice > 0\n  ? 'A condição comercial é exatamente R$ ' + priceText + ' e o código de oferta deve permanecer o mesmo da referência.'\n  : 'Este e-mail não possui desconto nem preço promocional. Não invente preço, cupom ou condição comercial.';\n\nconst prompt = [\n  'Crie UMA nova copy de e-mail para teste na PerfectPay.',\n  'Jornada: ' + (flowLabels[flow] || flow) + '.',\n  'Etapa: E-mail ' + step + ' de 3.',\n  'Você tem liberdade total de estilo, tom, intensidade emocional, estrutura e comprimento. Não existe limite editorial de tamanho ou formato dentro dos campos solicitados.',\n  'Procure uma abordagem realmente diferente da referência e com potencial de gerar clique. Você pode ser emocional, dramático, provocativo, narrativo, direto ou usar outro caminho que considerar mais forte.',\n  'O usuário fará a revisão humana antes de qualquer teste. Esta copy nunca será publicada automaticamente.',\n  'Preserve apenas a integridade técnica: use [nome], não invente fatos, depoimentos, preços, garantias ou condições da oferta e não inclua links ou dados pessoais.',\n  offerRule,\n  'Devolva somente a estrutura solicitada com: subject, preheader, body, button_text, footer, hypothesis e qa_summary.',\n  '',\n  'COPY DE REFERÊNCIA (não copie; use apenas para entender o contexto):',\n  JSON.stringify({\n    subject: reference.subject,\n    preheader: reference.preheader,\n    body: reference.body,\n    button_text: reference.button_text,\n    footer: reference.footer,\n  }),\n  '',\n  'VSL, REGRAS DA OFERTA, COPYS ANTIGAS E APRENDIZADOS:',\n  JSON.stringify(assets),\n].join('\\n');\n\nreturn [{ json: {\n  settings_mode: settings.mode,\n  platform: 'perfectpay',\n  champion_id: reference.id,\n  recovery_flow: flow,\n  step,\n  version_number: nextVersion,\n  offer_code: reference.offer_code,\n  original_price: reference.original_price == null ? null : Number(reference.original_price),\n  displayed_price: reference.displayed_price == null ? null : displayedPrice,\n  prompt,\n} }];"
+      },
+      "name": "Preparar contexto sem dados pessoais",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "Você é um redator de e-mails de performance. Tenha liberdade total de estilo, intensidade emocional, estrutura e comprimento. Não suavize a copy por preferência editorial. Preserve somente os fatos e condições reais fornecidos, nunca use dados pessoais e devolva apenas a estrutura solicitada. Toda copy será revisada por uma pessoa antes de entrar em teste.",
+          "maxIterations": 2,
+          "returnIntermediateSteps": false
+        }
+      },
+      "name": "Criar desafiante",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        912,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini",
+          "cachedResultName": "GPT-5 mini"
+        },
+        "builtInTools": {},
+        "responsesApiEnabled": true,
+        "options": {
+          "reasoningEffort": "low",
+          "timeout": 60000,
+          "maxRetries": 2
+        }
+      },
+      "name": "OpenAI econômico",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        768,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"subject\":\"🙏 [nome], uma pergunta sobre sua oração\",\"preheader\":\"Uma nova razão para retomar seu pedido.\",\"body\":\"Olá, [nome].\\n\\nTexto do e-mail.\",\"button_text\":\"🙏 QUERO CONTINUAR\",\"footer\":\"O desconto será aplicado automaticamente.\",\"hypothesis\":\"Hipótese objetiva do teste.\",\"qa_summary\":\"Resumo do que mudou e por que pode melhorar.\"}"
+      },
+      "name": "Formato obrigatório da copy",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        912,
+        512
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const draft = $input.first().json.output || {};\nconst context = $('Preparar contexto sem dados pessoais').first().json;\nconst history = $('Carregar histórico PerfectPay').all().map((item) => item.json);\nconst reference = history.find((row) => String(row.id) === String(context.champion_id)) || {};\nconst errors = [];\n\nfor (const field of ['subject', 'preheader', 'body', 'button_text', 'hypothesis']) {\n  if (!String(draft[field] || '').trim()) errors.push('Campo vazio: ' + field);\n}\nif (!String(draft.subject || '').includes('[nome]')) errors.push('Assunto sem [nome]');\nif (!String(draft.body || '').includes('[nome]')) errors.push('Corpo sem [nome]');\n\nconst joined = [draft.subject, draft.preheader, draft.body, draft.button_text, draft.footer]\n  .map((value) => String(value || '')).join(' ');\nif (/https?:\\/\\//i.test(joined)) errors.push('Copy contém link; o Motor é responsável pelo checkout');\nif (/[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}/i.test(joined)) errors.push('Copy contém endereço de e-mail');\n\nconst expectedPrice = Number(context.displayed_price || 0);\nconst commaPrice = expectedPrice.toFixed(2).replace('.', ',');\nif (expectedPrice > 0 && !joined.includes(commaPrice) && !joined.includes(expectedPrice.toFixed(2))) {\n  errors.push('Preço obrigatório R$ ' + commaPrice + ' ausente');\n}\nif (expectedPrice === 0 && /r\\$\\s*\\d/i.test(joined)) {\n  errors.push('Copy sem desconto introduziu preço não autorizado');\n}\nif (String(draft.subject || '').trim() === String(reference.subject || '').trim()) {\n  errors.push('Assunto idêntico ao da referência');\n}\n\nreturn [{ json: {\n  platform: 'perfectpay',\n  recovery_flow: context.recovery_flow,\n  step: context.step,\n  version_number: context.version_number,\n  role: errors.length ? 'rejected' : 'challenger',\n  status: errors.length ? 'rejected' : 'qa_passed',\n  subject: String(draft.subject || '').trim(),\n  preheader: String(draft.preheader || '').trim(),\n  body: String(draft.body || '').trim(),\n  button_text: String(draft.button_text || '').trim(),\n  footer: String(draft.footer || '').trim(),\n  offer_code: context.offer_code,\n  original_price: context.original_price,\n  displayed_price: context.displayed_price,\n  hypothesis: String(draft.hypothesis || '').trim(),\n  generated_by: 'openai_gpt_5_mini',\n  parent_variant_id: context.champion_id,\n  qa_passed: errors.length === 0,\n  qa_report: {\n    errors,\n    summary: String(draft.qa_summary || ''),\n    generated_at: new Date().toISOString(),\n    pii_used: false,\n    content_freedom: true,\n    review_required: true,\n    platform: 'perfectpay',\n    recovery_flow: context.recovery_flow,\n    step: context.step,\n  },\n  approval_required: true,\n} }];"
+      },
+      "name": "Validar regras automaticamente",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "copy_variants",
+        "dataToSend": "autoMapInputData"
+      },
+      "name": "Salvar versão no laboratório",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1472,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.qa_passed }}",
+              "rightValue": "={{ true }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "QA passou?",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.3,
+      "position": [
+        1744,
+        192
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6,
+              "triggerAtMinute": 15
+            }
+          ]
+        },
+        "misfirePolicy": "skip"
+      },
+      "name": "A cada 6 horas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -1088,
+        288
+      ],
+      "disabled": false
+    },
+    {
+      "parameters": {
+        "content": "## Laboratório PerfectPay — revisão humana primeiro\n\n- A IA cria somente um rascunho por vez.\n- Estilo, intensidade emocional, estrutura e tamanho ficam livres.\n- O bloqueio automático verifica apenas integridade técnica da oferta.\n- Nenhum experimento nasce antes da aprovação no dashboard.\n- Ao aprovar, começa um teste 50/50 de 10 envios por versão.\n- A Hotmart permanece intocada.\n- Agenda pausada até conectar uma credencial Gemini.",
+        "color": 5
+      },
+      "name": "Sticky Note 6f9fc743",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        112,
+        368
+      ]
+    }
+  ],
+  "connections": {
+    "Executar agora": {
+      "main": [
+        [
+          {
+            "node": "Carregar configurações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar configurações": {
+      "main": [
+        [
+          {
+            "node": "Carregar campeãs PerfectPay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar regras e vídeo": {
+      "main": [
+        [
+          {
+            "node": "Carregar testes PerfectPay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar contexto sem dados pessoais": {
+      "main": [
+        [
+          {
+            "node": "Criar desafiante",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar desafiante": {
+      "main": [
+        [
+          {
+            "node": "Validar regras automaticamente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI econômico": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Criar desafiante",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formato obrigatório da copy": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Criar desafiante",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar regras automaticamente": {
+      "main": [
+        [
+          {
+            "node": "Salvar versão no laboratório",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar versão no laboratório": {
+      "main": [
+        [
+          {
+            "node": "QA passou?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar campeãs PerfectPay": {
+      "main": [
+        [
+          {
+            "node": "Carregar regras e vídeo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar testes PerfectPay": {
+      "main": [
+        [
+          {
+            "node": "Carregar histórico PerfectPay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar histórico PerfectPay": {
+      "main": [
+        [
+          {
+            "node": "Preparar contexto sem dados pessoais",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada 6 horas": {
+      "main": [
+        [
+          {
+            "node": "Carregar configurações",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "name": "Escolher próximo rascunho",
+      "nodeNames": [
+        "Carregar configurações",
+        "Carregar campeãs PerfectPay",
+        "Carregar regras e vídeo",
+        "Carregar testes PerfectPay",
+        "Carregar histórico PerfectPay",
+        "Preparar contexto sem dados pessoais"
+      ],
+      "description": "Seleciona um e-mail PerfectPay sem teste nem rascunho pendente e monta o contexto sem dados pessoais."
+    },
+    {
+      "name": "Criar e validar rascunho",
+      "nodeNames": [
+        "Criar desafiante",
+        "OpenAI econômico",
+        "Formato obrigatório da copy",
+        "Validar regras automaticamente"
+      ],
+      "description": "Gera a copy com liberdade criativa e verifica somente a integridade técnica antes da revisão humana."
+    },
+    {
+      "name": "Salvar para revisão",
+      "nodeNames": [
+        "Salvar versão no laboratório",
+        "QA passou?"
+      ],
+      "description": "Salva o rascunho, mas não cria experimento nem publica nada antes da aprovação humana."
+    }
+  ],
+  "tags": []
+}

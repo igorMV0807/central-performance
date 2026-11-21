@@ -1,0 +1,414 @@
+{
+  "name": "[PP] 04 - Entrega do Produto (Produção)",
+  "active": false,
+  "description": "Entrega automática PerfectPay: após compra aprovada, baixa os materiais da oferta, envia um único e-mail com anexos, evita duplicidades e tenta novamente em falhas temporárias.",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "nodes": [
+    {
+      "name": "Receber compra aprovada",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "name": "Reservar entrega imediata",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_sale_code: $json.sale_code, p_customer_email: $json.customer_email, p_customer_name: $json.customer_name, p_product_code: $json.product_code, p_product_name: $json.product_name } }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Listar materiais da oferta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        120
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const files = [\"(audio)10 oracoes para porta de emprego.mp3\",\"(audio)Orações para Cura e Restauração.mp3\",\"(audio)Orações para Sair de uma Maré de Azar.mp3\",\"1.2. Dez (10) Orações para Portas de Emprego e Prosperidade.pdf\",\"A-Quaresma-do-Padre-Pio-1.pdf\",\"oracao arcanjo miguel.pdf\",\"Oracao-de-Sao-Rafael-Cura.pdf\",\"Oracao-de-Santo-Expedito.pdf\",\"Oracao-de-Santo-Antonio-Amor.pdf\",\"A-Quaresma-do-Padre-Pio-10.pdf\",\"A-Quaresma-do-Padre-Pio-2.pdf\",\"A-Quaresma-do-Padre-Pio-3.pdf\",\"A-Quaresma-do-Padre-Pio-4.pdf\",\"A-Quaresma-do-Padre-Pio-5.pdf\",\"A-Quaresma-do-Padre-Pio-6.pdf\",\"A-Quaresma-do-Padre-Pio-7.pdf\",\"A-Quaresma-do-Padre-Pio-8.pdf\",\"A-Quaresma-do-Padre-Pio-9.pdf\",\"Bônus #2.pdf\",\"Orações para Cura e Restauração.pdf\",\"Orações para Sair de uma Maré de Azar.pdf\",\"PARTE 2 OS BÔNUS DIGITAIS.pdf\",\"Sete (7) Orações para Restaurar Relacionamentos.pdf\",\"bonus 3.pdf\",\"inicio.pdf\",\"introducao do livro.pdf\"];\nconst items = $input.all();\nconst output = [];\nfor (let itemIndex = 0; itemIndex < items.length; itemIndex++) {\n  const source = items[itemIndex];\n  for (const filename of files) {\n    output.push({\n      json: { ...source.json, filename },\n      pairedItem: { item: itemIndex }\n    });\n  }\n}\nreturn output;"
+      }
+    },
+    {
+      "name": "Agrupar anexos da compra",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1080,
+        120
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const expectedFiles = 26;\nconst items = $input.all();\nconst groups = {};\nfor (let index = 0; index < items.length; index++) {\n  const item = items[index];\n  const key = String(item.json.delivery_log_id || '');\n  if (!key) continue;\n  if (!item.binary?.data) {\n    throw new Error(`Arquivo não baixado: ${item.json.filename || 'desconhecido'}`);\n  }\n  const filename = String(item.json.filename || item.binary.data.fileName || `arquivo-${index + 1}`);\n  const bytes = Number(item.binary.data.bytes || 0);\n  if (bytes <= 0) {\n    throw new Error(`Arquivo vazio: ${filename}`);\n  }\n  if (!groups[key]) {\n    groups[key] = {\n      json: { ...item.json, totalBytes: 0 },\n      binary: {},\n      pairedItem: { item: index }\n    };\n  }\n  const attachmentKey = 'file' + String(Object.keys(groups[key].binary).length + 1).padStart(2, '0');\n  const isAudio = filename.toLowerCase().endsWith('.mp3');\n  groups[key].binary[attachmentKey] = {\n    ...item.binary.data,\n    fileName: filename,\n    mimeType: isAudio ? 'audio/mpeg' : 'application/pdf'\n  };\n  groups[key].json.totalBytes += bytes;\n}\nconst output = Object.values(groups);\nfor (const item of output) {\n  const attachmentNames = Object.keys(item.binary);\n  if (attachmentNames.length !== expectedFiles) {\n    throw new Error(`Entrega incompleta: esperados ${expectedFiles} arquivos, recebidos ${attachmentNames.length}`);\n  }\n  item.json.attachments = attachmentNames.join(',');\n  item.json.file_count = attachmentNames.length;\n  item.json.total_megabytes = Math.round(item.json.totalBytes / 10000) / 100;\n}\nreturn output;"
+      }
+    },
+    {
+      "name": "Enviar materiais ao comprador",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1340,
+        120
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.customer_email }}",
+        "subject": "Seu material da Quaresma está pronto ✅",
+        "emailType": "html",
+        "message": "=<div style=\"font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#1f2937;line-height:1.65\"><div style=\"background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:28px\"><div style=\"font-size:28px;margin-bottom:12px\">🙏</div><h2 style=\"margin:0 0 18px;color:#111827\">Seu material está pronto</h2><p>Olá, {{ String($json.customer_name || 'cliente').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }}.</p><p>Seu pagamento foi aprovado e o acesso aos materiais da oferta foi liberado com sucesso.</p><p>Todos os conteúdos estão anexados neste e-mail.</p><p><strong>Minha recomendação para aproveitar melhor:</strong></p><ol><li>Escolha um horário fixo do dia.</li><li>Separe de 5 a 10 minutos.</li><li>Siga a sequência dos conteúdos.</li></ol><p>Constância vale mais do que intensidade.</p><p>Que este período seja de crescimento, paz e transformação para você.</p><p>Obrigado. Que Deus te abençoe.</p></div></div>",
+        "options": {
+          "appendAttribution": false,
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "={{ $json.attachments }}"
+              }
+            ]
+          }
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Confirmar entrega enviada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1620,
+        40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_delivery_log_id: $(\"Agrupar anexos da compra\").item.json.delivery_log_id, p_gmail_message_id: $json.id } }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Retentar entregas a cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        260
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        },
+        "misfirePolicy": "coalesce",
+        "misfireGraceSeconds": 900
+      }
+    },
+    {
+      "name": "Reservar entregas para retentativa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        260
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": {
+          "p_limit": 10
+        },
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Registrar falha na entrega",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1620,
+        220
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_delivery_log_id: $('Agrupar anexos da compra').item.json.delivery_log_id, p_error_message: String($json.error?.message || $json.error || $json.message || 'Falha no envio da entrega').slice(0,1000) } }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Baixar materiais completos do GitHub",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        820,
+        120
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://example.invalid' + encodeURIComponent($json.filename) + '?ref=main' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.raw+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 60000,
+          "batching": {
+            "batch": {
+              "batchSize": 5,
+              "batchInterval": 500
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receber compra aprovada": {
+      "main": [
+        [
+          {
+            "node": "Reservar entrega imediata",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar entrega imediata": {
+      "main": [
+        [
+          {
+            "node": "Listar materiais da oferta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrupar anexos da compra": {
+      "main": [
+        [
+          {
+            "node": "Enviar materiais ao comprador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar materiais ao comprador": {
+      "main": [
+        [
+          {
+            "node": "Confirmar entrega enviada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha na entrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retentar entregas a cada 15 minutos": {
+      "main": [
+        [
+          {
+            "node": "Reservar entregas para retentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar entregas para retentativa": {
+      "main": [
+        [
+          {
+            "node": "Listar materiais da oferta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar materiais da oferta": {
+      "main": [
+        [
+          {
+            "node": "Baixar materiais completos do GitHub",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar materiais completos do GitHub": {
+      "main": [
+        [
+          {
+            "node": "Agrupar anexos da compra",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "name": "Preparação e envio",
+      "nodeNames": [
+        "Listar materiais da oferta",
+        "Baixar materiais completos do GitHub",
+        "Agrupar anexos da compra",
+        "Enviar materiais ao comprador"
+      ],
+      "description": "Baixa todos os 26 materiais completos, valida os anexos e envia uma única mensagem ao comprador."
+    }
+  ],
+  "tags": []
+}

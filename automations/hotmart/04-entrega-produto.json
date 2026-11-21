@@ -1,0 +1,750 @@
+{
+  "name": "[HOTMART] 04 - Entrega Completa (Produção)",
+  "active": false,
+  "description": "Entrega exclusiva do produto Hotmart 1000000 em dois e-mails: biblioteca complementar de PDFs e áudios, separada da jornada principal publicada na Hotmart, com deduplicação e retentativas.",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "saveExecutionProgress": true,
+    "executionTimeout": 600
+  },
+  "nodes": [
+    {
+      "name": "Receber compra aprovada Hotmart",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        180
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "name": "Validar compra e preparar entrega",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const source = $input.first()?.json || {};\nif (!source.event_type) return [{ json: { delivery_mode: 'retry' } }];\nif (String(source.event_type).toUpperCase() !== 'PURCHASE_APPROVED') return [];\nif (String(source.product_id) !== '1000000') return [];\nconst transactionId = String(source.transaction_id || '').trim();\nconst email = String(source.buyer_email || '').trim().toLowerCase();\nif (!transactionId || !email) throw new Error('Compra aprovada sem transação ou e-mail do comprador');\nconst payload = source.payload_raw || {};\nreturn [{\n  json: {\n    delivery_mode: 'immediate',\n    transaction_id: transactionId,\n    journey_id: source.journey_id || null,\n    customer_email: email,\n    customer_name: String(source.buyer_name || '').trim(),\n    product_id: String(source.product_id),\n    product_name: String(payload?.data?.product?.name || 'Jornada Devocional de São Miguel')\n  }\n}];"
+      }
+    },
+    {
+      "name": "Retentar entregas a cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        420
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Reservar entrega sem duplicidade",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.delivery_mode === 'retry' ? 'https://example.invalid' : 'https://example.invalid' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.delivery_mode === 'retry' ? { p_limit: 10 } : { p_transaction_id: $json.transaction_id, p_journey_id: $json.journey_id, p_customer_email: $json.customer_email, p_customer_name: $json.customer_name, p_product_id: $json.product_id, p_product_name: $json.product_name } }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "PDFs já foram enviados?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        780,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Boolean($json.gmail_message_id_pdfs) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "name": "Listar três áudios complementares",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2240,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const files = [\n  '(audio)10 oracoes para porta de emprego.mp3',\n  '(audio)Orações para Cura e Restauração.mp3',\n  '(audio)Orações para Sair de uma Maré de Azar.mp3'\n];\nconst source = $input.first();\nreturn files.map((filename, index) => ({ json: { ...source.json, filename }, pairedItem: { item: 0 } }));"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Listar workbook e PDFs complementares",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const files = [\n  'jornada-devocional-sao-miguel-21-dias.pdf',\n  '1.2. Dez (10) Orações para Portas de Emprego e Prosperidade.pdf',\n  'A-Quaresma-do-Padre-Pio-1.pdf',\n  'oracao arcanjo miguel.pdf',\n  'Oracao-de-Sao-Rafael-Cura.pdf',\n  'Oracao-de-Santo-Expedito.pdf',\n  'Oracao-de-Santo-Antonio-Amor.pdf',\n  'A-Quaresma-do-Padre-Pio-10.pdf',\n  'A-Quaresma-do-Padre-Pio-2.pdf',\n  'A-Quaresma-do-Padre-Pio-3.pdf',\n  'A-Quaresma-do-Padre-Pio-4.pdf',\n  'A-Quaresma-do-Padre-Pio-5.pdf',\n  'A-Quaresma-do-Padre-Pio-6.pdf',\n  'A-Quaresma-do-Padre-Pio-7.pdf',\n  'A-Quaresma-do-Padre-Pio-8.pdf',\n  'A-Quaresma-do-Padre-Pio-9.pdf',\n  'Bônus #2.pdf',\n  'Orações para Cura e Restauração.pdf',\n  'Orações para Sair de uma Maré de Azar.pdf',\n  'PARTE 2 OS BÔNUS DIGITAIS.pdf',\n  'Sete (7) Orações para Restaurar Relacionamentos.pdf',\n  'bonus 3.pdf',\n  'inicio.pdf',\n  'introducao do livro.pdf'\n];\nconst source = $input.first();\nreturn files.map((filename, index) => ({ json: { ...source.json, filename }, pairedItem: { item: 0 } }));"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Baixar workbook e PDFs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        1280,
+        480
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://example.invalid' + encodeURIComponent($json.filename) + '?ref=main' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.raw+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 300
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Agrupar anexos em PDF",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1520,
+        480
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const expectedFiles = 24;\nconst items = $input.all();\nif (items.length !== expectedFiles) throw new Error('Entrega incompleta de PDFs: esperados 24 arquivos, recebidos ' + items.length);\nconst out = { json: { ...items[0].json, totalBytes: 0 }, binary: {}, pairedItem: { item: 0 } };\nfor (let index = 0; index < items.length; index++) {\n  const item = items[index];\n  if (!item.binary?.data) throw new Error('PDF não baixado: ' + String(item.json.filename || 'desconhecido'));\n  const key = 'pdf' + String(index + 1).padStart(2, '0');\n  const filename = String(item.json.filename || item.binary.data.fileName || key + '.pdf');\n  out.binary[key] = { ...item.binary.data, fileName: filename, mimeType: 'application/pdf' };\n  out.json.totalBytes += Number(item.binary.data.bytes || 0);\n}\nout.json.attachments = Object.keys(out.binary).join(',');\nout.json.file_count = Object.keys(out.binary).length;\nreturn [out];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Enviar workbook e PDFs - E-mail 1 de 2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1760,
+        480
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.customer_email }}",
+        "subject": "Seu acesso está pronto: Hotmart + materiais extras (1/2) ✅",
+        "emailType": "html",
+        "message": "={{ '<div style=\"font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#1f2937;line-height:1.65\"><div style=\"background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:28px\"><div style=\"font-size:28px;margin-bottom:12px\">🙏</div><h2 style=\"margin:0 0 18px;color:#111827\">Sua Jornada Devocional está pronta</h2><p>Olá, ' + String($json.customer_name || 'cliente').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '.</p><p>Seu pagamento foi aprovado e seu acesso já está liberado.</p><p><strong>Na Hotmart</strong> você encontra a experiência principal organizada: primeiro o guia <strong>Comece Aqui</strong> e depois a <strong>Jornada Devocional de São Miguel — 21 dias</strong>, em versão otimizada para celular.</p><p><strong>Neste e-mail</strong> você recebe uma biblioteca complementar separada, com o workbook e outros materiais em PDF. Esses anexos são extras para consulta e não substituem a ordem principal da Hotmart.</p><p><strong>Como começar:</strong></p><ol><li>Entre na sua área de membros da Hotmart.</li><li>Abra primeiro o arquivo “01 — Comece Aqui”.</li><li>Depois siga a jornada principal no seu ritmo.</li><li>Use os PDFs deste e-mail como apoio quando desejar.</li></ol><p>Em seguida você receberá um segundo e-mail com três áudios complementares exclusivos do pacote enviado por e-mail.</p><p>Guarde esta mensagem para consultar os anexos sempre que precisar.</p><p>Que este período seja de paz, reflexão e constância.</p><p>Obrigado. Que Deus te abençoe.</p></div></div>' }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Jornada Devocional de São Miguel",
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "={{ $json.attachments }}"
+              }
+            ]
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Confirmar envio dos PDFs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2000,
+        480
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_delivery_log_id: $('Reservar entrega sem duplicidade').item.json.id, p_gmail_message_id: $json.id } }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Baixar áudios complementares",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2480,
+        300
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://example.invalid' + encodeURIComponent($json.filename) + '?ref=main' }}",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "githubApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "application/vnd.github.raw+json"
+            },
+            {
+              "name": "X-GitHub-Api-Version",
+              "value": "2022-11-28"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 120000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 300
+            }
+          },
+          "response": {
+            "response": {
+              "responseFormat": "file",
+              "outputPropertyName": "data",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Agrupar anexos de áudio",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        300
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const expectedFiles = 3;\nconst items = $input.all();\nif (items.length !== expectedFiles) throw new Error('Entrega incompleta de áudios: esperados 3 arquivos, recebidos ' + items.length);\nconst out = { json: { ...items[0].json, totalBytes: 0 }, binary: {}, pairedItem: { item: 0 } };\nfor (let index = 0; index < items.length; index++) {\n  const item = items[index];\n  if (!item.binary?.data) throw new Error('Áudio não baixado: ' + String(item.json.filename || 'desconhecido'));\n  const key = 'audio' + String(index + 1).padStart(2, '0');\n  const filename = String(item.json.filename || item.binary.data.fileName || key + '.mp3');\n  out.binary[key] = { ...item.binary.data, fileName: filename, mimeType: 'audio/mpeg' };\n  out.json.totalBytes += Number(item.binary.data.bytes || 0);\n}\nout.json.attachments = Object.keys(out.binary).join(',');\nout.json.file_count = Object.keys(out.binary).length;\nreturn [out];"
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Enviar áudios - E-mail 2 de 2",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        2960,
+        300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $json.customer_email }}",
+        "subject": "Seus áudios extras chegaram (2/2) 🎧",
+        "emailType": "html",
+        "message": "={{ '<div style=\"font-family:Arial,sans-serif;max-width:620px;margin:0 auto;color:#1f2937;line-height:1.65\"><div style=\"background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;padding:28px\"><div style=\"font-size:28px;margin-bottom:12px\">🎧</div><h2 style=\"margin:0 0 18px;color:#111827\">Seus áudios complementares</h2><p>Olá, ' + String($json.customer_name || 'cliente').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '.</p><p>Esta é a segunda e última parte do pacote complementar enviado por e-mail.</p><p>Os três áudios estão anexados para você ouvir quando desejar. Eles são <strong>extras independentes</strong> e não fazem parte da ordem principal da jornada disponível na Hotmart.</p><p>Para uma experiência mais clara, comece pelo guia <strong>“01 — Comece Aqui”</strong> na sua área de membros e siga a jornada de 21 dias. Use estes áudios como apoio adicional nos momentos em que fizer sentido para você.</p><p>Guarde os dois e-mails em um lugar seguro para consultar os materiais extras sempre que precisar.</p><p>Desejamos uma excelente jornada de oração e reflexão.</p><p>Obrigado. Que Deus te abençoe.</p></div></div>' }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Jornada Devocional de São Miguel",
+          "attachmentsUi": {
+            "attachmentsBinary": [
+              {
+                "property": "={{ $json.attachments }}"
+              }
+            ]
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Confirmar entrega completa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        3200,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_delivery_log_id: $('Reservar entrega sem duplicidade').item.json.id, p_gmail_message_id: $json.id } }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
+    },
+    {
+      "name": "Registrar falha e agendar nova tentativa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        2480,
+        700
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_delivery_log_id: $('Reservar entrega sem duplicidade').item.json.id, p_error_message: String($json.error?.message || $json.error || $json.message || 'Falha na entrega Hotmart').slice(0,1000) } }}",
+        "options": {
+          "timeout": 20000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    }
+  ],
+  "connections": {
+    "Receber compra aprovada Hotmart": {
+      "main": [
+        [
+          {
+            "node": "Validar compra e preparar entrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar compra e preparar entrega": {
+      "main": [
+        [
+          {
+            "node": "Reservar entrega sem duplicidade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Retentar entregas a cada 15 minutos": {
+      "main": [
+        [
+          {
+            "node": "Validar compra e preparar entrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar entrega sem duplicidade": {
+      "main": [
+        [
+          {
+            "node": "PDFs já foram enviados?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "PDFs já foram enviados?": {
+      "main": [
+        [
+          {
+            "node": "Listar três áudios complementares",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Listar workbook e PDFs complementares",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar três áudios complementares": {
+      "main": [
+        [
+          {
+            "node": "Baixar áudios complementares",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Listar workbook e PDFs complementares": {
+      "main": [
+        [
+          {
+            "node": "Baixar workbook e PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar workbook e PDFs": {
+      "main": [
+        [
+          {
+            "node": "Agrupar anexos em PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrupar anexos em PDF": {
+      "main": [
+        [
+          {
+            "node": "Enviar workbook e PDFs - E-mail 1 de 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar workbook e PDFs - E-mail 1 de 2": {
+      "main": [
+        [
+          {
+            "node": "Confirmar envio dos PDFs",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar envio dos PDFs": {
+      "main": [
+        [
+          {
+            "node": "Listar três áudios complementares",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixar áudios complementares": {
+      "main": [
+        [
+          {
+            "node": "Agrupar anexos de áudio",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Agrupar anexos de áudio": {
+      "main": [
+        [
+          {
+            "node": "Enviar áudios - E-mail 2 de 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar áudios - E-mail 2 de 2": {
+      "main": [
+        [
+          {
+            "node": "Confirmar entrega completa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmar entrega completa": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Registrar falha e agendar nova tentativa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "name": "Entregar compra Hotmart",
+      "nodeNames": [
+        "Validar compra e preparar entrega",
+        "Reservar entrega sem duplicidade",
+        "PDFs já foram enviados?",
+        "Listar workbook e PDFs complementares",
+        "Baixar workbook e PDFs",
+        "Agrupar anexos em PDF",
+        "Enviar workbook e PDFs - E-mail 1 de 2",
+        "Confirmar envio dos PDFs",
+        "Listar três áudios complementares",
+        "Baixar áudios complementares",
+        "Agrupar anexos de áudio",
+        "Enviar áudios - E-mail 2 de 2",
+        "Confirmar entrega completa",
+        "Registrar falha e agendar nova tentativa"
+      ],
+      "description": "Valida a compra, envia PDFs e áudios em duas mensagens e registra o resultado sem duplicar entregas."
+    }
+  ],
+  "tags": []
+}

@@ -1,0 +1,5257 @@
+{
+  "name": "Hotmart - Processador de Eventos",
+  "active": false,
+  "description": "Máquina de estados das compras Hotmart: roteia eventos, aplica precedência temporal, atualiza jornadas e encerra recuperações quando necessário.",
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "inputSource": "passthrough"
+      },
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -760,
+        0
+      ],
+      "name": "Receber Evento do Ingresso"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_APPROVED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "APROVADA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_CANCELED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CANCELADA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_COMPLETE",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "COMPLETA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_BILLET_PRINTED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "AGUARDANDO_PAGAMENTO"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_REFUNDED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "REEMBOLSADA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_CHARGEBACK",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "CHARGEBACK"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_EXPIRED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "EXPIRADA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_DELAYED",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ATRASADA"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_PROTEST",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "REEMBOLSO_SOLICITADO"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.event_type }}",
+                    "rightValue": "PURCHASE_OUT_OF_SHOPPING_CART",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ABANDONADA"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "extra"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        -480,
+        0
+      ],
+      "name": "Roteador de Evento"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -2400
+      ],
+      "name": "Buscar Jornada por Transação",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "is true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        -2400
+      ],
+      "name": "Jornada já existe?"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "APPROVED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "approved_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.payload_raw.data.purchase.approved_date || $('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -2280
+      ],
+      "name": "Criar Jornada Aprovada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "APPROVED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "approved_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.payload_raw.data.purchase.approved_date || $('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "recovered",
+              "fieldValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT', 'DELAYED', 'CANCELED', 'EXPIRED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  Number($json.last_step_sent ?? 0) > 0\n    ? true\n    : Boolean($json.recovered)\n}}"
+            },
+            {
+              "fieldId": "recovered_step",
+              "fieldValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT', 'DELAYED', 'CANCELED', 'EXPIRED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  Number($json.last_step_sent ?? 0) > 0\n    ? Number($json.last_step_sent)\n    : ($json.recovered_step ?? null)\n}}"
+            },
+            {
+              "fieldId": "recovered_revenue",
+              "fieldValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT', 'DELAYED', 'CANCELED', 'EXPIRED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  Number($json.last_step_sent ?? 0) > 0\n    ? Number($('Receber Evento do Ingresso').item.json.price || 0)\n    : ($json.recovered_revenue ?? null)\n}}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -2500
+      ],
+      "name": "Atualizar Jornada Aprovada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        -2400
+      ],
+      "name": "STOP - Recuperações Abertas",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        -2400
+      ],
+      "name": "Marcar Evento Processado",
+      "executeOnce": true,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        -900
+      ],
+      "name": "Jornada existe - Aguardando?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >= Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -1000
+      ],
+      "name": "Pode Atualizar Aguardando?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -900
+      ],
+      "name": "Buscar Jornada - Aguardando",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "WAITING_PAYMENT"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }} "
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "WAITING_PAYMENT"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "0"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -780
+      ],
+      "name": "Criar Jornada - Aguardando",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "WAITING_PAYMENT"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "=WAITING_PAYMENT"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{\n  String($json.current_status || '').trim().toUpperCase() === 'WAITING_PAYMENT'\n    ? ($json.next_step_at ?? null)\n    : null\n}}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "={{   String($json.current_status || '').trim().toUpperCase() === 'WAITING_PAYMENT'     ? Number($json.last_step_sent || 0)     : 0 }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -1000
+      ],
+      "name": "Atualizar Jornada - Aguardando"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1960,
+        -900
+      ],
+      "name": "Marcar Evento Processado - Aguardando"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -1900
+      ],
+      "name": "Buscar Jornada - Cancelada",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        -1900
+      ],
+      "name": "Jornada existe - Cancelada?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT', 'DELAYED', 'CANCELED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >= Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -2000
+      ],
+      "name": "Pode Atualizar Cancelada?"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "CANCELED"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "cancelled_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "CANCELED"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -1780
+      ],
+      "name": "Criar Jornada - Cancelada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "CANCELED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "CANCELED"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "cancelled_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "={{ String($json.current_status || '').trim().toUpperCase() === 'CANCELED' ? Number($json.last_step_sent || 0) : 0 }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ String($json.current_status || '').trim().toUpperCase() === 'CANCELED' ? ($json.next_step_at ?? null) : null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -2000
+      ],
+      "name": "Atualizar Jornada - Cancelada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        -1900
+      ],
+      "name": "Marcar Evento Processado - Cancelada"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -1400
+      ],
+      "name": "Buscar Jornada - Completa",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        -1400
+      ],
+      "name": "Jornada existe - Completa?"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "COMPLETED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "completed_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -1280
+      ],
+      "name": "Criar Jornada - Completa"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "COMPLETED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "completed_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "recovered",
+              "fieldValue": "={{ Boolean($json.recovered) || Number($json.last_step_sent ?? 0) > 0 }}"
+            },
+            {
+              "fieldId": "recovered_step",
+              "fieldValue": "={{ $json.recovered_step ?? (Number($json.last_step_sent ?? 0) > 0 ? Number($json.last_step_sent) : null) }}"
+            },
+            {
+              "fieldId": "recovered_revenue",
+              "fieldValue": "={{ $json.recovered_revenue ?? (Number($json.last_step_sent ?? 0) > 0 ? Number($('Receber Evento do Ingresso').item.json.price || 0) : null) }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -1500
+      ],
+      "name": "Atualizar Jornada - Completa"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT', 'DELAYED', 'CANCELED', 'APPROVED', 'COMPLETED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >= Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -1500
+      ],
+      "name": "Pode Atualizar Completa?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        -1400
+      ],
+      "name": "Marcar Evento Processado - Completa"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1600
+      ],
+      "name": "Buscar Jornada - Reembolso Solicitado",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        1600
+      ],
+      "name": "Jornada existe - Reembolso Solicitado?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['APPROVED', 'COMPLETED', 'REFUND_REQUESTED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >= Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        1500
+      ],
+      "name": "Pode Atualizar Reembolso Solicitado?"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "REFUND_REQUESTED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "refund_requested_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        1700
+      ],
+      "name": "Criar Jornada - Reembolso Solicitado"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "REFUND_REQUESTED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "refund_requested_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        1500
+      ],
+      "name": "Atualizar Jornada - Reembolso Solicitado"
+    },
+    {
+      "parameters": {
+        "content": "## ✅ APROVADO\nLocaliza a jornada pela transação ou por recuperação aberta da mesma combinação comprador + produto + oferta. Fecha recuperações e atribui venda recuperada quando aplicável.",
+        "height": 384,
+        "width": 1744,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -2600
+      ],
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        1600
+      ],
+      "name": "Marcar Evento Processado - Reembolso Solicitado"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -400
+      ],
+      "name": "Buscar Jornada - Reembolsada",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        -400
+      ],
+      "name": "Jornada existe - Reembolsada?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['APPROVED', 'COMPLETED', 'REFUND_REQUESTED', 'REFUNDED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >= Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        -500
+      ],
+      "name": "Pode Atualizar Reembolsada?"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "REFUNDED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "refunded_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -300
+      ],
+      "name": "Criar Jornada - Reembolsada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "REFUNDED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "refunded_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        -500
+      ],
+      "name": "Atualizar Jornada - Reembolsada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -400
+      ],
+      "name": "Marcar Evento Processado - Reembolsada"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        100
+      ],
+      "name": "Buscar Jornada - Chargeback",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        100
+      ],
+      "name": "Jornada existe - Chargeback?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['APPROVED', 'COMPLETED', 'REFUND_REQUESTED', 'REFUNDED', 'CHARGEBACK'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >= Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        0
+      ],
+      "name": "Pode Atualizar Chargeback?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "CHARGEBACK"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "chargeback_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        0
+      ],
+      "name": "Atualizar Jornada - Chargeback"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "CHARGEBACK"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "chargeback_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "0"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        200
+      ],
+      "name": "Criar Jornada - Chargeback"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        100
+      ],
+      "name": "Marcar Evento Processado - Chargeback"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        600
+      ],
+      "name": "Buscar Jornada - Expirada",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        600
+      ],
+      "name": "Jornada existe - Expirada?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT', 'DELAYED', 'CANCELED', 'EXPIRED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >= Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        500
+      ],
+      "name": "Pode Atualizar Expirada?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "EXPIRED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "=EXPIRED"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "expired_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ String($json.current_status || '').trim().toUpperCase() === 'EXPIRED' ? ($json.next_step_at ?? null) : null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "={{ String($json.current_status || '').trim().toUpperCase() === 'EXPIRED' ? Number($json.last_step_sent || 0) : 0 }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        500
+      ],
+      "name": "Atualizar Jornada - Expirada"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "EXPIRED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "expired_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "EXPIRED"
+            },
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "0"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        720
+      ],
+      "name": "Criar Jornada - Expirada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        600
+      ],
+      "name": "Marcar Evento Processado - Expirada"
+    },
+    {
+      "parameters": {
+        "content": "## 🟠 CANCELADO\nAtualiza ou cria a jornada como `CANCELED`, preservando ordem temporal e habilitando recuperação quando a transição é válida.",
+        "height": 432,
+        "width": 1632,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -2100
+      ],
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## 🟢 COMPLETO\nMove a jornada para `COMPLETED`, encerra recuperação e usa fallback por identidade quando a transação ainda não estava vinculada.",
+        "height": 400,
+        "width": 1920,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -1600
+      ],
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## 🟡 AGUARDANDO PAGAMENTO\nVincula a transação à jornada anterior quando existir abandono compatível. Mantém a jornada recuperável e protege contra conflitos concorrentes.",
+        "height": 336,
+        "width": 1920,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -1100
+      ],
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## 🔵 REEMBOLSADO\nAtualiza para `REFUNDED`, encerra qualquer recuperação e respeita a precedência temporal dos eventos.",
+        "height": 416,
+        "width": 1472,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -600
+      ],
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "## 🔴 CHARGEBACK\nMarca a jornada como `CHARGEBACK`, desativa recuperação e registra o momento do chargeback.",
+        "height": 448,
+        "width": 1472,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -100
+      ],
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "## ⌛ EXPIRADO\nTransforma a jornada em `EXPIRED`, mantém recuperação ativa e usa fallback por identidade para evitar duplicação de jornada.",
+        "height": 384,
+        "width": 1552,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        400
+      ],
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "content": "## ↩️ REEMBOLSO SOLICITADO\nMove a jornada para `REFUND_REQUESTED`, encerra recuperação e registra o momento da solicitação.",
+        "height": 384,
+        "width": 1584,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        1400
+      ],
+      "name": "Sticky Note7"
+    },
+    {
+      "parameters": {
+        "content": "## ⚠️ PAGAMENTO ATRASADO\nMove a jornada para `DELAYED`, mantém recuperação ativa e evita criar outra jornada quando existe uma recuperação compatível.",
+        "height": 448,
+        "width": 1552,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        900
+      ],
+      "name": "Sticky Note8"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        1100
+      ],
+      "name": "Buscar Jornada - Atrasada",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        1100
+      ],
+      "name": "Jornada existe - Atrasada?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT', 'DELAYED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >=\n      Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        1000
+      ],
+      "name": "Pode Atualizar Atrasada?"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "DELAYED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "=DELAYED"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "overdue_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ String($json.current_status || '').trim().toUpperCase() === 'DELAYED' ? ($json.next_step_at ?? null) : null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "={{ String($json.current_status || '').trim().toUpperCase() === 'DELAYED' ? Number($json.last_step_sent || 0) : 0 }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        1000
+      ],
+      "name": "Atualizar Jornada - Atrasada"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "DELAYED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "overdue_at",
+              "fieldValue": "={{ new Date($('Receber Evento do Ingresso').item.json.event_created_at).toISOString() }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "DELAYED"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        1220
+      ],
+      "name": "Criar Jornada - Atrasada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        1100
+      ],
+      "name": "Marcar Evento Processado - Atrasada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "processing_error",
+              "fieldValue": "={{ 'EVENTO_NAO_TRATADO: ' + String($json.event_type || 'DESCONHECIDO') }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        2600
+      ],
+      "name": "Update a row"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "orderBy": "last_event_created_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "current_status",
+              "condition": "eq",
+              "keyValue": "ABANDONED"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -780
+      ],
+      "name": "Buscar Abandono Anterior - Aguardando",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -780
+      ],
+      "name": "Abandono existe - Aguardando?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "orderBy": "last_event_created_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        2100
+      ],
+      "name": "Buscar Jornada - Abandonada",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        2100
+      ],
+      "name": "Jornada existe - Abandonada?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ \n  $('Receber Evento do Ingresso').item.json.event_created_at > $json.last_event_created_at\n}}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        560,
+        2000
+      ],
+      "name": "Abandono é mais novo?"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ \n  $json.current_status === 'ABANDONED' &&\n  $json.recovery_allowed === true &&\n  Number($json.last_step_sent ?? 0) < 3\n}}",
+              "rightValue": "ABANDONED",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        1900
+      ],
+      "name": "Jornada já está abandonada?"
+    },
+    {
+      "parameters": {
+        "tableId": "purchase_journeys",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "transaction_id",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "current_status",
+              "fieldValue": "ABANDONED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }} "
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "ABANDONED"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "first_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "product_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "0"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        2220
+      ],
+      "name": "Criar Jornada - Abandonada",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "current_status",
+              "fieldValue": "ABANDONED"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "=ABANDONED"
+            },
+            {
+              "fieldId": "buyer_name",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_name }}"
+            },
+            {
+              "fieldId": "offer_code",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "fieldId": "currency",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.currency }}"
+            },
+            {
+              "fieldId": "last_event_id",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            },
+            {
+              "fieldId": "last_event_created_at",
+              "fieldValue": "={{ $('Receber Evento do Ingresso').item.json.event_created_at }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        1900
+      ],
+      "name": "Atualizar Jornada - Abandonada"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        2100
+      ],
+      "name": "Marcar Evento Processado - Abandonada"
+    },
+    {
+      "parameters": {
+        "content": "## 🛒 ABANDONO DE CARRINHO\nCria ou atualiza a jornada `ABANDONED` usando comprador + produto + oferta como identidade antes de existir uma transação.",
+        "height": 528,
+        "width": 1808,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        1800
+      ],
+      "name": "Sticky Note9"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{\n  ['ABANDONED', 'WAITING_PAYMENT', 'DELAYED', 'CANCELED', 'EXPIRED', 'APPROVED'].includes(\n    String($json.current_status || '').trim().toUpperCase()\n  )\n  &&\n  (\n    $json.last_event_created_at === null ||\n    $json.last_event_created_at === undefined ||\n    Number($('Receber Evento do Ingresso').item.json.event_created_at) >=\n      Number($json.last_event_created_at)\n  )\n}}",
+              "rightValue": "is true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -2500
+      ],
+      "name": "Pode Atualizar Aprovada?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "orderBy": "last_event_created_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -2280
+      ],
+      "name": "Buscar Recuperação Anterior - Aprovada",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "is true",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -2280
+      ],
+      "name": "Recuperação existe - Aprovada?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "transaction_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.transaction_id }}"
+            }
+          ]
+        }
+      },
+      "name": "Rebuscar Jornada após Conflito - Aguardando",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        -680
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Jornada apareceu após Conflito - Aguardando?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1680,
+        -680
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "orderBy": "last_event_created_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "name": "Buscar Recuperação Anterior - Completa",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -1280
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Recuperação existe - Completa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -1280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "orderBy": "last_event_created_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "name": "Buscar Recuperação Anterior - Cancelada",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -1780
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Recuperação existe - Cancelada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -1780
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "orderBy": "last_event_created_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "name": "Buscar Recuperação Anterior - Expirada",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        720
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Recuperação existe - Expirada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "orderBy": "last_event_created_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "name": "Buscar Recuperação Anterior - Atrasada",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        1220
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Recuperação existe - Atrasada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        1220
+      ]
+    },
+    {
+      "parameters": {
+        "content": "# Processador de Eventos Hotmart\nRecebe um evento já normalizado, identifica o tipo no roteador e executa somente o ramo correspondente. Todos os ramos protegem a ordem temporal e finalizam marcando o evento como processado.",
+        "height": 260,
+        "width": 620,
+        "color": 7
+      },
+      "name": "🧭 Visão Geral do Processador",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -820,
+        -280
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "returnAll": true,
+        "orderBy": "last_event_created_at.desc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "current_status",
+              "condition": "eq",
+              "keyValue": "ABANDONED"
+            },
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      },
+      "name": "Rebuscar Abandono após Criar",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1400,
+        2220
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ Number($('Criar Jornada - Abandonada').item.json.id) === Math.max(...$('Rebuscar Abandono após Criar').all().map(i => Number(i.json.id || 0))) }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Sou o Abandono Mais Novo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1680,
+        2220
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Criar Jornada - Abandonada').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "name": "Desativar Abandono Duplicado",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1960,
+        2320
+      ]
+    },
+    {
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": 1,
+        "unit": "seconds"
+      },
+      "name": "Aguardar Concorrência - Abandonada",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        2220
+      ]
+    },
+    {
+      "name": "Buscar Compra Aprovada - Proteção de Reativação",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        -200
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "current_status",
+              "condition": "eq",
+              "keyValue": "APPROVED"
+            }
+          ]
+        }
+      },
+      "notes": "Após qualquer rota recuperável, verifica se o cliente já possui compra aprovada do mesmo produto e oferta.",
+      "alwaysOutputData": true
+    },
+    {
+      "name": "Compra aprovada bloqueia reativação?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1960,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Buscar Compra Completa - Proteção de Reativação",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        -200
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "current_status",
+              "condition": "eq",
+              "keyValue": "COMPLETED"
+            }
+          ]
+        }
+      },
+      "notes": "Complementa a proteção para compras já concluídas.",
+      "alwaysOutputData": true
+    },
+    {
+      "name": "Compra completa bloqueia reativação?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        2520,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Desativar Recuperações - Compra Finalizada",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2800,
+        -320
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.offer_code }}"
+            },
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "notes": "Mantém desativadas todas as recuperações abertas quando já existe compra APPROVED ou COMPLETE.",
+      "alwaysOutputData": true
+    },
+    {
+      "name": "Marcar Evento Processado - Proteção de Reativação",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        3080,
+        -200
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "hotmart_events",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Receber Evento do Ingresso').item.json.event_id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "processed",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "processed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Receber Evento do Ingresso": {
+      "main": [
+        [
+          {
+            "node": "Roteador de Evento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Roteador de Evento": {
+      "main": [
+        [
+          {
+            "node": "Buscar Jornada por Transação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Cancelada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Completa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Aguardando",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Reembolsada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Chargeback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Expirada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Atrasada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Reembolso Solicitado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Jornada - Abandonada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Update a row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada por Transação": {
+      "main": [
+        [
+          {
+            "node": "Jornada já existe?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada já existe?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Aprovada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Recuperação Anterior - Aprovada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada Aprovada": {
+      "main": [
+        [
+          {
+            "node": "STOP - Recuperações Abertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada Aprovada": {
+      "main": [
+        [
+          {
+            "node": "STOP - Recuperações Abertas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "STOP - Recuperações Abertas": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Aguardando?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Aguardando?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Abandono Anterior - Aguardando",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Aguardando": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Aguardando?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Aguardando?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Aguardando",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Aguardando",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Aguardando": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rebuscar Jornada após Conflito - Aguardando",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Cancelada": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Cancelada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Cancelada?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Cancelada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Recuperação Anterior - Cancelada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Cancelada?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Cancelada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Cancelada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Completa": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Completa?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Completa?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Completa?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Recuperação Anterior - Completa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Completa": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Completa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Completa?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Completa",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Completa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Completa": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Completa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Reembolso Solicitado": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Reembolso Solicitado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Reembolso Solicitado?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Reembolso Solicitado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Reembolso Solicitado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Reembolso Solicitado?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Reembolso Solicitado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Reembolso Solicitado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Reembolso Solicitado": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Reembolso Solicitado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Reembolso Solicitado": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Reembolso Solicitado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Reembolsada": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Reembolsada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Reembolsada?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Reembolsada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Reembolsada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Reembolsada?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Reembolsada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Reembolsada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Reembolsada": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Reembolsada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Reembolsada": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Reembolsada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Chargeback": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Chargeback?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Chargeback?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Chargeback?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Chargeback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Chargeback?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Chargeback",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Chargeback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Chargeback": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Chargeback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Chargeback": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Chargeback",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Expirada": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Expirada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Expirada?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Expirada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Recuperação Anterior - Expirada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Expirada?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Expirada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Expirada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Atrasada": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Atrasada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Atrasada?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Atrasada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Recuperação Anterior - Atrasada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Atrasada?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Atrasada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Atrasada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abandono existe - Aguardando?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Aguardando?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Aguardando",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Abandono Anterior - Aguardando": {
+      "main": [
+        [
+          {
+            "node": "Abandono existe - Aguardando?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornada - Abandonada": {
+      "main": [
+        [
+          {
+            "node": "Jornada existe - Abandonada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada existe - Abandonada?": {
+      "main": [
+        [
+          {
+            "node": "Abandono é mais novo?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Abandonada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Abandono é mais novo?": {
+      "main": [
+        [
+          {
+            "node": "Jornada já está abandonada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Abandonada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada já está abandonada?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Abandonada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Abandonada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode Atualizar Aprovada?": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada Aprovada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Recuperação Anterior - Aprovada": {
+      "main": [
+        [
+          {
+            "node": "Recuperação existe - Aprovada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recuperação existe - Aprovada?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Aprovada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada Aprovada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rebuscar Jornada após Conflito - Aguardando": {
+      "main": [
+        [
+          {
+            "node": "Jornada apareceu após Conflito - Aguardando?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Jornada apareceu após Conflito - Aguardando?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Aguardando?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Recuperação Anterior - Completa": {
+      "main": [
+        [
+          {
+            "node": "Recuperação existe - Completa?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recuperação existe - Completa?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Completa?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Completa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Recuperação Anterior - Cancelada": {
+      "main": [
+        [
+          {
+            "node": "Recuperação existe - Cancelada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recuperação existe - Cancelada?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Cancelada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Cancelada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Recuperação Anterior - Expirada": {
+      "main": [
+        [
+          {
+            "node": "Recuperação existe - Expirada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recuperação existe - Expirada?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Expirada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Expirada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Recuperação Anterior - Atrasada": {
+      "main": [
+        [
+          {
+            "node": "Recuperação existe - Atrasada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Recuperação existe - Atrasada?": {
+      "main": [
+        [
+          {
+            "node": "Pode Atualizar Atrasada?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Criar Jornada - Atrasada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Rebuscar Abandono após Criar": {
+      "main": [
+        [
+          {
+            "node": "Sou o Abandono Mais Novo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sou o Abandono Mais Novo?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Desativar Abandono Duplicado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Desativar Abandono Duplicado": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Abandonada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Abandonada": {
+      "main": [
+        [
+          {
+            "node": "Aguardar Concorrência - Abandonada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aguardar Concorrência - Abandonada": {
+      "main": [
+        [
+          {
+            "node": "Rebuscar Abandono após Criar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Aguardando": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Abandonada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Cancelada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Cancelada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Expirada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Expirada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Jornada - Atrasada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Atrasada": {
+      "main": [
+        [
+          {
+            "node": "Buscar Compra Aprovada - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Compra Aprovada - Proteção de Reativação": {
+      "main": [
+        [
+          {
+            "node": "Compra aprovada bloqueia reativação?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compra aprovada bloqueia reativação?": {
+      "main": [
+        [
+          {
+            "node": "Desativar Recuperações - Compra Finalizada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Compra Completa - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Compra Completa - Proteção de Reativação": {
+      "main": [
+        [
+          {
+            "node": "Compra completa bloqueia reativação?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compra completa bloqueia reativação?": {
+      "main": [
+        [
+          {
+            "node": "Desativar Recuperações - Compra Finalizada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar Evento Processado - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Desativar Recuperações - Compra Finalizada": {
+      "main": [
+        [
+          {
+            "node": "Marcar Evento Processado - Proteção de Reativação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "tags": []
+}

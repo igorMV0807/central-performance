@@ -1,0 +1,266 @@
+{
+  "name": "[PP] 03 - Rastreamento de Cliques (Produção)",
+  "active": false,
+  "description": "Rastreador PerfectPay em produção: valida token único, registra o clique sem guardar IP bruto e redireciona ao checkout específico de cada etapa.",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Sao_Paulo",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "executionTimeout": 30,
+    "saveDataSuccessExecution": "all"
+  },
+  "nodes": [
+    {
+      "name": "Clique no e-mail PerfectPay",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        192
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "perfectpay-click-v1",
+        "authentication": "none",
+        "responseMode": "responseNode",
+        "options": {
+          "ignoreBots": true
+        }
+      }
+    },
+    {
+      "name": "Token de rastreamento é válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        192
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(String($json.query?.t || '')) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Registrar clique sem guardar IP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        96
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_tracking_token: $json.query.t, p_user_agent: String($json.headers?.['user-agent'] || '').slice(0, 500), p_ip_hash: null } }}",
+        "options": {
+          "timeout": 10000,
+          "response": {
+            "response": {
+              "responseFormat": "text",
+              "neverError": false,
+              "fullResponse": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Destino está configurado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        672,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": false,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ String($json.data || $json.body || '').startsWith('https://') }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Redirecionar ao checkout",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "respondWith": "redirect",
+        "redirectURL": "={{ String($json.data || $json.body || '') }}",
+        "options": {
+          "responseCode": 302
+        }
+      }
+    },
+    {
+      "name": "Checkout ainda não configurado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        896,
+        192
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "success": false,
+          "error": "Checkout ainda não configurado"
+        },
+        "options": {
+          "responseCode": 503
+        }
+      }
+    },
+    {
+      "name": "Clique inválido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        448,
+        288
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "success": false,
+          "error": "Link inválido"
+        },
+        "options": {
+          "responseCode": 404
+        }
+      }
+    },
+    {
+      "name": "Sobre o rastreamento",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        192,
+        256
+      ],
+      "parameters": {
+        "content": "## Rastreamento PerfectPay — produção\nConta cliques por token único e redireciona ao checkout configurado em cada etapa. Não armazena o endereço IP bruto.\n\nTokens inválidos retornam erro sem acessar o checkout.",
+        "height": 200,
+        "width": 600,
+        "color": 6
+      }
+    }
+  ],
+  "connections": {
+    "Clique no e-mail PerfectPay": {
+      "main": [
+        [
+          {
+            "node": "Token de rastreamento é válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Token de rastreamento é válido?": {
+      "main": [
+        [
+          {
+            "node": "Registrar clique sem guardar IP",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Clique inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar clique sem guardar IP": {
+      "main": [
+        [
+          {
+            "node": "Destino está configurado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Destino está configurado?": {
+      "main": [
+        [
+          {
+            "node": "Redirecionar ao checkout",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Checkout ainda não configurado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "tags": []
+}

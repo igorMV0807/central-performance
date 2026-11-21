@@ -1,0 +1,1036 @@
+{
+  "info": {
+    "name": "Hotmart Recovery — Public E2E QA",
+    "description": "Portfolio-safe end-to-end QA collection. Configure webhook_url and hottok locally; never use production secrets in this file.",
+    "schema": "https://example.invalid"
+  },
+  "item": [
+    {
+      "name": "01A - ABANDONED",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_a', String(r));",
+              "pm.collectionVariables.set('a_t0', String(r));",
+              "pm.collectionVariables.set('a_t1', String(r + 1000));",
+              "pm.collectionVariables.set('a_t2', String(r + 2000));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-a-abandoned-{{run_a}}\",\n  \"creation_date\": {{a_t0}},\n  \"event\": \"PURCHASE_OUT_OF_SHOPPING_CART\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.a.{{run_a}}@example.com\", \"name\": \"QA Scenario A\"},\n    \"product\": {\"id\": 990001, \"name\": \"Produto QA A\"},\n    \"offer\": {\"code\": \"qa-offer-a\"}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "02A - WAITING_PAYMENT",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-a-waiting-{{run_a}}\",\n  \"creation_date\": {{a_t1}},\n  \"event\": \"PURCHASE_BILLET_PRINTED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.a.{{run_a}}@example.com\", \"name\": \"QA Scenario A\"},\n    \"product\": {\"id\": 990001, \"name\": \"Produto QA A\"},\n    \"purchase\": {\"transaction\": \"QA-A-{{run_a}}\", \"status\": \"BILLET_PRINTED\", \"offer\": {\"code\": \"qa-offer-a\"}, \"price\": {\"value\": 1500, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "03A - APPROVED",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-a-approved-{{run_a}}\",\n  \"creation_date\": {{a_t2}},\n  \"event\": \"PURCHASE_APPROVED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.a.{{run_a}}@example.com\", \"name\": \"QA Scenario A\"},\n    \"product\": {\"id\": 990001, \"name\": \"Produto QA A\"},\n    \"purchase\": {\"transaction\": \"QA-A-{{run_a}}\", \"status\": \"APPROVED\", \"approved_date\": {{a_t2}}, \"offer\": {\"code\": \"qa-offer-a\"}, \"price\": {\"value\": 1500, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "04B - ABANDONED direto",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_b', String(r));",
+              "pm.collectionVariables.set('b_t0', String(r));",
+              "pm.collectionVariables.set('b_t1', String(r + 1000));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-b-abandoned-{{run_b}}\",\n  \"creation_date\": {{b_t0}},\n  \"event\": \"PURCHASE_OUT_OF_SHOPPING_CART\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.b.{{run_b}}@example.com\", \"name\": \"QA Scenario B\"},\n    \"product\": {\"id\": 990002, \"name\": \"Produto QA B\"},\n    \"offer\": {\"code\": \"qa-offer-b\"}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "05B - APPROVED direto",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-b-approved-{{run_b}}\",\n  \"creation_date\": {{b_t1}},\n  \"event\": \"PURCHASE_APPROVED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.b.{{run_b}}@example.com\", \"name\": \"QA Scenario B\"},\n    \"product\": {\"id\": 990002, \"name\": \"Produto QA B\"},\n    \"purchase\": {\"transaction\": \"QA-B-{{run_b}}\", \"status\": \"APPROVED\", \"approved_date\": {{b_t1}}, \"offer\": {\"code\": \"qa-offer-b\"}, \"price\": {\"value\": 1200, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "06C - WAITING_PAYMENT antes de CANCELED",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_c', String(r));",
+              "pm.collectionVariables.set('c_t0', String(r));",
+              "pm.collectionVariables.set('c_t1', String(r + 1000));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-c-waiting-{{run_c}}\",\n  \"creation_date\": {{c_t0}},\n  \"event\": \"PURCHASE_BILLET_PRINTED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.c.{{run_c}}@example.com\", \"name\": \"QA Scenario C\"},\n    \"product\": {\"id\": 990003, \"name\": \"Produto QA C\"},\n    \"purchase\": {\"transaction\": \"QA-C-{{run_c}}\", \"status\": \"BILLET_PRINTED\", \"offer\": {\"code\": \"qa-offer-c\"}, \"price\": {\"value\": 1300, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "07C - CANCELED",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-c-canceled-{{run_c}}\",\n  \"creation_date\": {{c_t1}},\n  \"event\": \"PURCHASE_CANCELED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.c.{{run_c}}@example.com\", \"name\": \"QA Scenario C\"},\n    \"product\": {\"id\": 990003, \"name\": \"Produto QA C\"},\n    \"purchase\": {\"transaction\": \"QA-C-{{run_c}}\", \"status\": \"CANCELED\", \"offer\": {\"code\": \"qa-offer-c\"}, \"price\": {\"value\": 1300, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "08D - WAITING_PAYMENT antes de EXPIRED",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_d', String(r));",
+              "pm.collectionVariables.set('d_t0', String(r));",
+              "pm.collectionVariables.set('d_t1', String(r + 1000));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-d-waiting-{{run_d}}\",\n  \"creation_date\": {{d_t0}},\n  \"event\": \"PURCHASE_BILLET_PRINTED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.d.{{run_d}}@example.com\", \"name\": \"QA Scenario D\"},\n    \"product\": {\"id\": 990004, \"name\": \"Produto QA D\"},\n    \"purchase\": {\"transaction\": \"QA-D-{{run_d}}\", \"status\": \"BILLET_PRINTED\", \"offer\": {\"code\": \"qa-offer-d\"}, \"price\": {\"value\": 1400, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "09D - EXPIRED",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-d-expired-{{run_d}}\",\n  \"creation_date\": {{d_t1}},\n  \"event\": \"PURCHASE_EXPIRED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.d.{{run_d}}@example.com\", \"name\": \"QA Scenario D\"},\n    \"product\": {\"id\": 990004, \"name\": \"Produto QA D\"},\n    \"purchase\": {\"transaction\": \"QA-D-{{run_d}}\", \"status\": \"EXPIRED\", \"offer\": {\"code\": \"qa-offer-d\"}, \"price\": {\"value\": 1400, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "10E - WAITING_PAYMENT antes de DELAYED",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_e', String(r));",
+              "pm.collectionVariables.set('e_t0', String(r));",
+              "pm.collectionVariables.set('e_t1', String(r + 1000));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-e-waiting-{{run_e}}\",\n  \"creation_date\": {{e_t0}},\n  \"event\": \"PURCHASE_BILLET_PRINTED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.e.{{run_e}}@example.com\", \"name\": \"QA Scenario E\"},\n    \"product\": {\"id\": 990005, \"name\": \"Produto QA E\"},\n    \"purchase\": {\"transaction\": \"QA-E-{{run_e}}\", \"status\": \"BILLET_PRINTED\", \"offer\": {\"code\": \"qa-offer-e\"}, \"price\": {\"value\": 1500, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "11E - DELAYED",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-e-delayed-{{run_e}}\",\n  \"creation_date\": {{e_t1}},\n  \"event\": \"PURCHASE_DELAYED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.e.{{run_e}}@example.com\", \"name\": \"QA Scenario E\"},\n    \"product\": {\"id\": 990005, \"name\": \"Produto QA E\"},\n    \"purchase\": {\"transaction\": \"QA-E-{{run_e}}\", \"status\": \"DELAYED\", \"offer\": {\"code\": \"qa-offer-e\"}, \"price\": {\"value\": 1500, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "12F - APPROVED",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_f', String(r));",
+              "pm.collectionVariables.set('f_t0', String(r));",
+              "pm.collectionVariables.set('f_t1', String(r + 1000));",
+              "pm.collectionVariables.set('f_t2', String(r + 2000));",
+              "pm.collectionVariables.set('f_t3', String(r + 3000));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-f-approved-{{run_f}}\",\n  \"creation_date\": {{f_t0}},\n  \"event\": \"PURCHASE_APPROVED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.f.{{run_f}}@example.com\", \"name\": \"QA Scenario F\"},\n    \"product\": {\"id\": 990006, \"name\": \"Produto QA F\"},\n    \"purchase\": {\"transaction\": \"QA-F-{{run_f}}\", \"status\": \"APPROVED\", \"approved_date\": {{f_t0}}, \"offer\": {\"code\": \"qa-offer-f\"}, \"price\": {\"value\": 1600, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "13F - COMPLETED",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-f-completed-{{run_f}}\",\n  \"creation_date\": {{f_t1}},\n  \"event\": \"PURCHASE_COMPLETE\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.f.{{run_f}}@example.com\", \"name\": \"QA Scenario F\"},\n    \"product\": {\"id\": 990006, \"name\": \"Produto QA F\"},\n    \"purchase\": {\"transaction\": \"QA-F-{{run_f}}\", \"status\": \"COMPLETED\", \"offer\": {\"code\": \"qa-offer-f\"}, \"price\": {\"value\": 1600, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "14F - REFUND_REQUESTED",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-f-refund-requested-{{run_f}}\",\n  \"creation_date\": {{f_t2}},\n  \"event\": \"PURCHASE_PROTEST\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.f.{{run_f}}@example.com\", \"name\": \"QA Scenario F\"},\n    \"product\": {\"id\": 990006, \"name\": \"Produto QA F\"},\n    \"purchase\": {\"transaction\": \"QA-F-{{run_f}}\", \"status\": \"REFUND_REQUESTED\", \"offer\": {\"code\": \"qa-offer-f\"}, \"price\": {\"value\": 1600, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "15F - REFUNDED",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-f-refunded-{{run_f}}\",\n  \"creation_date\": {{f_t3}},\n  \"event\": \"PURCHASE_REFUNDED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.f.{{run_f}}@example.com\", \"name\": \"QA Scenario F\"},\n    \"product\": {\"id\": 990006, \"name\": \"Produto QA F\"},\n    \"purchase\": {\"transaction\": \"QA-F-{{run_f}}\", \"status\": \"REFUNDED\", \"offer\": {\"code\": \"qa-offer-f\"}, \"price\": {\"value\": 1600, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "16G - APPROVED antes de CHARGEBACK",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_g', String(r));",
+              "pm.collectionVariables.set('g_t0', String(r));",
+              "pm.collectionVariables.set('g_t1', String(r + 1000));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-g-approved-{{run_g}}\",\n  \"creation_date\": {{g_t0}},\n  \"event\": \"PURCHASE_APPROVED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.g.{{run_g}}@example.com\", \"name\": \"QA Scenario G\"},\n    \"product\": {\"id\": 990007, \"name\": \"Produto QA G\"},\n    \"purchase\": {\"transaction\": \"QA-G-{{run_g}}\", \"status\": \"APPROVED\", \"approved_date\": {{g_t0}}, \"offer\": {\"code\": \"qa-offer-g\"}, \"price\": {\"value\": 1700, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "17G - CHARGEBACK",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-g-chargeback-{{run_g}}\",\n  \"creation_date\": {{g_t1}},\n  \"event\": \"PURCHASE_CHARGEBACK\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.g.{{run_g}}@example.com\", \"name\": \"QA Scenario G\"},\n    \"product\": {\"id\": 990007, \"name\": \"Produto QA G\"},\n    \"purchase\": {\"transaction\": \"QA-G-{{run_g}}\", \"status\": \"CHARGEBACK\", \"offer\": {\"code\": \"qa-offer-g\"}, \"price\": {\"value\": 1700, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "18H - DUPLICATE primeira vez",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_h', String(r));",
+              "pm.collectionVariables.set('h_t0', String(r));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-h-duplicate-{{run_h}}\",\n  \"creation_date\": {{h_t0}},\n  \"event\": \"PURCHASE_OUT_OF_SHOPPING_CART\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.h.{{run_h}}@example.com\", \"name\": \"QA Duplicate\"},\n    \"product\": {\"id\": 990008, \"name\": \"Produto QA H\"},\n    \"offer\": {\"code\": \"qa-offer-h\"}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "19H - DUPLICATE mesma event_id",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Evento duplicado identificado', function () {",
+              "  const body = pm.response.json();",
+              "  pm.expect(body.status).to.eql('duplicate');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-h-duplicate-{{run_h}}\",\n  \"creation_date\": {{h_t0}},\n  \"event\": \"PURCHASE_OUT_OF_SHOPPING_CART\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.h.{{run_h}}@example.com\", \"name\": \"QA Duplicate\"},\n    \"product\": {\"id\": 990008, \"name\": \"Produto QA H\"},\n    \"offer\": {\"code\": \"qa-offer-h\"}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "20I - UNKNOWN EVENT fallback",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_i', String(r));",
+              "pm.collectionVariables.set('i_t0', String(r));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-i-unknown-{{run_i}}\",\n  \"creation_date\": {{i_t0}},\n  \"event\": \"PURCHASE_UNKNOWN_QA_EVENT\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.i.{{run_i}}@example.com\", \"name\": \"QA Unknown\"},\n    \"product\": {\"id\": 990009, \"name\": \"Produto QA I\"},\n    \"purchase\": {\"transaction\": \"QA-I-{{run_i}}\", \"status\": \"UNKNOWN\", \"offer\": {\"code\": \"qa-offer-i\"}, \"price\": {\"value\": 1800, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "21J - APPROVED mais novo",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const r = Date.now();",
+              "pm.collectionVariables.set('run_j', String(r));",
+              "pm.collectionVariables.set('j_t0', String(r));",
+              "pm.collectionVariables.set('j_t1', String(r + 5000));"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-j-approved-{{run_j}}\",\n  \"creation_date\": {{j_t1}},\n  \"event\": \"PURCHASE_APPROVED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.j.{{run_j}}@example.com\", \"name\": \"QA Out Of Order\"},\n    \"product\": {\"id\": 990010, \"name\": \"Produto QA J\"},\n    \"purchase\": {\"transaction\": \"QA-J-{{run_j}}\", \"status\": \"APPROVED\", \"approved_date\": {{j_t1}}, \"offer\": {\"code\": \"qa-offer-j\"}, \"price\": {\"value\": 1900, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "22J - WAITING_PAYMENT mais antigo",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "x-hotmart-hottok",
+            "value": ""
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"id\": \"qa-j-old-waiting-{{run_j}}\",\n  \"creation_date\": {{j_t0}},\n  \"event\": \"PURCHASE_BILLET_PRINTED\",\n  \"version\": \"2.0.0\",\n  \"data\": {\n    \"buyer\": {\"email\": \"qa.hotmart.j.{{run_j}}@example.com\", \"name\": \"QA Out Of Order\"},\n    \"product\": {\"id\": 990010, \"name\": \"Produto QA J\"},\n    \"purchase\": {\"transaction\": \"QA-J-{{run_j}}\", \"status\": \"BILLET_PRINTED\", \"offer\": {\"code\": \"qa-offer-j\"}, \"price\": {\"value\": 1900, \"currency_value\": \"BRL\"}}\n  }\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{webhook_url}}",
+          "host": [
+            "{{webhook_url}}"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "New Request",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    },
+    {
+      "name": "New Request",
+      "protocolProfileBehavior": {
+        "disableBodyPruning": true
+      },
+      "request": {
+        "method": "GET",
+        "header": []
+      },
+      "response": []
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('HTTP 2xx', function () {",
+          "  pm.expect(pm.response.code).to.be.within(200, 299);",
+          "});",
+          "pm.test('Resposta JSON válida', function () {",
+          "  pm.response.json();",
+          "});"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "webhook_url",
+      "value": "https://example.invalid"
+    },
+    {
+      "key": "run_a",
+      "value": ""
+    },
+    {
+      "key": "a_t0",
+      "value": ""
+    },
+    {
+      "key": "a_t1",
+      "value": ""
+    },
+    {
+      "key": "a_t2",
+      "value": ""
+    },
+    {
+      "key": "run_b",
+      "value": ""
+    },
+    {
+      "key": "b_t0",
+      "value": ""
+    },
+    {
+      "key": "b_t1",
+      "value": ""
+    },
+    {
+      "key": "run_c",
+      "value": ""
+    },
+    {
+      "key": "c_t0",
+      "value": ""
+    },
+    {
+      "key": "c_t1",
+      "value": ""
+    },
+    {
+      "key": "run_d",
+      "value": ""
+    },
+    {
+      "key": "d_t0",
+      "value": ""
+    },
+    {
+      "key": "d_t1",
+      "value": ""
+    },
+    {
+      "key": "run_e",
+      "value": ""
+    },
+    {
+      "key": "e_t0",
+      "value": ""
+    },
+    {
+      "key": "e_t1",
+      "value": ""
+    },
+    {
+      "key": "run_f",
+      "value": ""
+    },
+    {
+      "key": "f_t0",
+      "value": ""
+    },
+    {
+      "key": "f_t1",
+      "value": ""
+    },
+    {
+      "key": "f_t2",
+      "value": ""
+    },
+    {
+      "key": "f_t3",
+      "value": ""
+    },
+    {
+      "key": "run_g",
+      "value": ""
+    },
+    {
+      "key": "g_t0",
+      "value": ""
+    },
+    {
+      "key": "g_t1",
+      "value": ""
+    },
+    {
+      "key": "run_h",
+      "value": ""
+    },
+    {
+      "key": "h_t0",
+      "value": ""
+    },
+    {
+      "key": "run_i",
+      "value": ""
+    },
+    {
+      "key": "i_t0",
+      "value": ""
+    },
+    {
+      "key": "run_j",
+      "value": ""
+    },
+    {
+      "key": "j_t0",
+      "value": ""
+    },
+    {
+      "key": "j_t1",
+      "value": ""
+    }
+  ]
+}

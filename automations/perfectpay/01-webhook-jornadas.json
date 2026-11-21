@@ -1,0 +1,337 @@
+{
+  "name": "[PP] 01 - Webhook e Jornadas (Produção)",
+  "active": false,
+  "description": "Entrada PerfectPay isolada em produção: autentica, deduplica, normaliza eventos e mantém apenas as jornadas PerfectPay.",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Sao_Paulo",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "executionTimeout": 60,
+    "saveDataSuccessExecution": "all"
+  },
+  "nodes": [
+    {
+      "name": "PerfectPay - Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        96
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "perfectpay-central-v1",
+        "authentication": "none",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "name": "Validar token PerfectPay",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        224,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ String($env.PERFECTPAY_WEBHOOK_TOKEN || '').length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "leftValue": "={{ String($json.body?.token || $json.headers?.['x-perfectpay-token'] || '') }}",
+              "rightValue": "={{ String($env.PERFECTPAY_WEBHOOK_TOKEN || '') }}",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Registrar evento e atualizar jornada",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://example.invalid",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "supabaseApi",
+        "sendHeaders": true,
+        "specifyHeaders": "keypair",
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ { p_payload: $json.body ?? {}, p_received_at: $now.toISO() } }}",
+        "options": {
+          "timeout": 15000,
+          "response": {
+            "response": {
+              "responseFormat": "json",
+              "neverError": false,
+              "fullResponse": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Confirmar recebimento",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, status: $json.duplicate ? 'duplicate' : 'processed', mode: $json.mode || 'shadow' } }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "name": "Rejeitar acesso inválido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.5,
+      "position": [
+        448,
+        192
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": {
+          "success": false,
+          "error": "Unauthorized"
+        },
+        "options": {
+          "responseCode": 403
+        }
+      }
+    },
+    {
+      "name": "Sobre este workflow",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        80,
+        128
+      ],
+      "parameters": {
+        "content": "## PerfectPay — entrada em produção\nRecebe eventos oficiais, exige token por variável de ambiente, remove o segredo do payload no banco e atualiza apenas tabelas perfectpay_*.\n\nNão altera nem compartilha jornadas com a automação Hotmart.",
+        "height": 220,
+        "width": 620,
+        "color": 5
+      }
+    },
+    {
+      "name": "Compra aprovada inédita?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        704,
+        -224
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ !$json.duplicate && ['APPROVED','AUTHORIZED','COMPLETED'].includes(String($json.status || '')) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Preparar dados da entrega",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        960,
+        -224
+      ],
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "name": "sale_code",
+              "value": "={{ String($('PerfectPay - Webhook').item.json.body?.code || $('PerfectPay - Webhook').item.json.body?.sale?.code || '') }}",
+              "type": "string"
+            },
+            {
+              "name": "customer_email",
+              "value": "={{ String($('PerfectPay - Webhook').item.json.body?.customer?.email || '') }}",
+              "type": "string"
+            },
+            {
+              "name": "customer_name",
+              "value": "={{ String($('PerfectPay - Webhook').item.json.body?.customer?.full_name || $('PerfectPay - Webhook').item.json.body?.customer?.name || '') }}",
+              "type": "string"
+            },
+            {
+              "name": "product_code",
+              "value": "={{ String($('PerfectPay - Webhook').item.json.body?.product?.code || '') }}",
+              "type": "string"
+            },
+            {
+              "name": "product_name",
+              "value": "={{ String($('PerfectPay - Webhook').item.json.body?.product?.name || '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      }
+    },
+    {
+      "name": "Executar entrega PerfectPay",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.4,
+      "position": [
+        1216,
+        -224
+      ],
+      "parameters": {
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "WORKFLOW_04_ENTREGA_PRODUTO",
+          "cachedResultName": "[PP] 04 - Entrega do Produto (Produção)"
+        },
+        "mode": "once",
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    }
+  ],
+  "connections": {
+    "PerfectPay - Webhook": {
+      "main": [
+        [
+          {
+            "node": "Validar token PerfectPay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar token PerfectPay": {
+      "main": [
+        [
+          {
+            "node": "Registrar evento e atualizar jornada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Rejeitar acesso inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar evento e atualizar jornada": {
+      "main": [
+        [
+          {
+            "node": "Confirmar recebimento",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Compra aprovada inédita?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compra aprovada inédita?": {
+      "main": [
+        [
+          {
+            "node": "Preparar dados da entrega",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar dados da entrega": {
+      "main": [
+        [
+          {
+            "node": "Executar entrega PerfectPay",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "name": "Entrega após aprovação",
+      "nodeNames": [
+        "Compra aprovada inédita?",
+        "Preparar dados da entrega",
+        "Executar entrega PerfectPay"
+      ],
+      "description": "Aciona a entrega somente para uma compra nova aprovada e encaminha os dados mínimos ao workflow de entrega."
+    }
+  ],
+  "tags": []
+}

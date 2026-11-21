@@ -1,0 +1,255 @@
+{
+  "name": "[LAB] Copys - Avaliar experimentos a cada 3h",
+  "active": false,
+  "description": "Avalia a cada 3 horas somente os testes Hotmart: triagem A/B de até 20 envios por slot (10 por versão), usando cliques como sinal e sem promover campeã automaticamente.",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "timezone": "America/Sao_Paulo",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "nodes": [
+    {
+      "name": "Avaliar agora",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -900,
+        80
+      ],
+      "parameters": {}
+    },
+    {
+      "name": "Carregar regras de avaliação",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -620,
+        180
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "getAll",
+        "tableId": "copy_laboratory_settings",
+        "limit": 1,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Buscar testes em andamento",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -340,
+        180
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "getAll",
+        "tableId": "copy_experiments",
+        "returnAll": true,
+        "orderBy": "started_at.asc",
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "running"
+            },
+            {
+              "keyName": "platform",
+              "condition": "eq",
+              "keyValue": "hotmart"
+            }
+          ]
+        }
+      },
+      "executeOnce": true
+    },
+    {
+      "name": "Carregar envios rastreados",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -60,
+        180
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "getAll",
+        "tableId": "copy_experiment_email_metrics_source",
+        "returnAll": true,
+        "orderBy": "sent_at.asc",
+        "filterType": "string",
+        "filterString": "copy_experiment_id=not.is.null&platform=eq.hotmart"
+      },
+      "executeOnce": true
+    },
+    {
+      "name": "Calcular resultado sem promover",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const experiments = $('Buscar testes em andamento').all().map((item) => item.json);\nconst logs = $('Carregar envios rastreados').all().map((item) => item.json);\nconst now = new Date().toISOString();\n\nconst metricsFor = (rows) => {\n  const sent = rows.filter((r) => String(r.status || '').toUpperCase() === 'SENT').length;\n  const clicked = rows.filter((r) => Number(r.click_count || 0) > 0).length;\n  const purchases = rows.filter((r) => Boolean(r.converted_at)).length;\n  const revenue = rows.reduce((sum, r) => sum + Number(r.converted_revenue || 0), 0);\n  return {\n    sent,\n    clicked,\n    purchases,\n    revenue: Number(revenue.toFixed(2)),\n    click_rate: sent ? Number(((clicked / sent) * 100).toFixed(2)) : 0,\n    conversion_rate: sent ? Number(((purchases / sent) * 100).toFixed(2)) : 0,\n    revenue_per_sent: sent ? Number((revenue / sent).toFixed(4)) : 0,\n  };\n};\n\nconst hashSeed = (value) => {\n  let hash = 2166136261;\n  for (const char of String(value)) {\n    hash ^= char.charCodeAt(0);\n    hash = Math.imul(hash, 16777619);\n  }\n  return hash >>> 0;\n};\n\nconst makeRandom = (seedValue) => {\n  let state = hashSeed(seedValue) || 1;\n  return () => {\n    state += 0x6D2B79F5;\n    let t = state;\n    t = Math.imul(t ^ (t >>> 15), t | 1);\n    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);\n    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;\n  };\n};\n\nconst normalSample = (random) => {\n  const u1 = Math.max(random(), 1e-12);\n  const u2 = random();\n  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);\n};\n\nconst gammaSample = (shape, random) => {\n  if (shape < 1) {\n    return gammaSample(shape + 1, random) * Math.pow(Math.max(random(), 1e-12), 1 / shape);\n  }\n  const d = shape - 1 / 3;\n  const c = 1 / Math.sqrt(9 * d);\n  for (;;) {\n    const x = normalSample(random);\n    const vBase = 1 + c * x;\n    if (vBase <= 0) continue;\n    const v = vBase * vBase * vBase;\n    const u = random();\n    if (u < 1 - 0.0331 * x * x * x * x) return d * v;\n    if (Math.log(Math.max(u, 1e-12)) < 0.5 * x * x + d * (1 - v + Math.log(v))) return d * v;\n  }\n};\n\nconst betaSample = (successes, failures, random) => {\n  const x = gammaSample(successes + 1, random);\n  const y = gammaSample(failures + 1, random);\n  return x / (x + y);\n};\n\nconst posteriorComparison = (control, challenger, seedValue) => {\n  const random = makeRandom(seedValue);\n  const draws = 20000;\n  let challengerBetter = 0;\n  let challengerLiftFive = 0;\n  let controlLiftFive = 0;\n  for (let i = 0; i < draws; i++) {\n    const controlRate = betaSample(control.purchases, Math.max(0, control.sent - control.purchases), random);\n    const challengerRate = betaSample(challenger.purchases, Math.max(0, challenger.sent - challenger.purchases), random);\n    if (challengerRate > controlRate) challengerBetter++;\n    if (challengerRate >= controlRate * 1.05) challengerLiftFive++;\n    if (controlRate >= challengerRate * 1.05) controlLiftFive++;\n  }\n  return {\n    method: 'beta_binomial_monte_carlo',\n    draws,\n    probability_challenger_better: Number((challengerBetter / draws).toFixed(4)),\n    probability_challenger_lift_5pct: Number((challengerLiftFive / draws).toFixed(4)),\n    probability_control_lift_5pct: Number((controlLiftFive / draws).toFixed(4)),\n    confidence_threshold: 0.9,\n    minimum_business_lift: 0.05,\n  };\n};\n\nreturn experiments.map((experiment) => {\n  const platform = String(experiment.platform || 'hotmart');\n  const rows = logs.filter((r) =>\n    String(r.copy_experiment_id || '') === String(experiment.id) &&\n    String(r.platform || 'hotmart') === platform\n  );\n  const control = metricsFor(rows.filter((r) => String(r.copy_variant_id || '') === String(experiment.champion_variant_id)));\n  const challenger = metricsFor(rows.filter((r) => String(r.copy_variant_id || '') === String(experiment.challenger_variant_id)));\n  const minSends = Number(experiment.minimum_sends_per_variant || 100);\n  const minPurchases = Number(experiment.minimum_purchases_total || 5);\n  const purchasesTotal = control.purchases + challenger.purchases;\n  const stats = posteriorComparison(control, challenger, [experiment.id, control.sent, control.purchases, challenger.sent, challenger.purchases].join(':'));\n\n  let decision = 'insufficient_data';\n  let reason = 'Ainda não existem 10 envios válidos de cada versão para concluir a triagem.';\n\n  if (['perfectpay', 'hotmart'].includes(platform) && String(experiment.primary_metric || '') === 'click_rate') {\n    if (control.sent >= minSends && challenger.sent >= minSends) {\n      if (control.clicked === 0 && challenger.clicked === 0) {\n        decision = 'technical_stop';\n        reason = '[TRIAGEM] As duas versões ficaram sem cliques após 20 envios. A rodada foi encerrada para receber novos ângulos.';\n      } else if (control.clicked > challenger.clicked) {\n        decision = 'champion_wins';\n        reason = '[TRIAGEM] Versão A promissora: gerou mais cliques que a versão B. Ainda não é campeã; deve enfrentar uma nova alternativa.';\n      } else if (challenger.clicked > control.clicked) {\n        decision = 'challenger_wins';\n        reason = '[TRIAGEM] Versão B promissora: gerou mais cliques que a versão A. Ainda não é campeã; deve enfrentar uma nova alternativa.';\n      } else {\n        decision = 'keep_running';\n        reason = '[TRIAGEM] Empate em cliques após 20 envios. Nenhuma campeã foi definida; a próxima rodada deve testar um novo ângulo.';\n      }\n    }\n  } else if (control.sent >= minSends && challenger.sent >= minSends && purchasesTotal >= minPurchases) {\n    const challengerRevenueGuard = challenger.revenue_per_sent >= control.revenue_per_sent * 1.05 ||\n      (control.revenue_per_sent === 0 && challenger.revenue_per_sent > 0);\n    const controlRevenueGuard = control.revenue_per_sent >= challenger.revenue_per_sent * 1.05 ||\n      (challenger.revenue_per_sent === 0 && control.revenue_per_sent > 0);\n\n    if (stats.probability_challenger_lift_5pct >= 0.9 && challengerRevenueGuard) {\n      decision = 'challenger_wins';\n      reason = 'A desafiante atingiu pelo menos 90% de probabilidade de superar o controle em 5% ou mais, com receita por envio também superior.';\n    } else if (stats.probability_control_lift_5pct >= 0.9 && controlRevenueGuard) {\n      decision = 'champion_wins';\n      reason = 'O controle atingiu pelo menos 90% de probabilidade de superar a desafiante em 5% ou mais, com receita por envio também superior.';\n    } else {\n      decision = 'keep_running';\n      reason = 'A amostra mínima foi atingida, mas a confiança estatística ou a vantagem de receita ainda não é suficiente; o teste continua.';\n    }\n  }\n\n  return {\n    json: {\n      platform,\n      experiment_id: experiment.id,\n      window_start: experiment.started_at || experiment.created_at,\n      window_end: now,\n      champion_metrics: { ...control, label: 'control', statistical: stats },\n      challenger_metrics: { ...challenger, label: 'challenger', statistical: stats },\n      decision,\n      reason,\n      promoted: false,\n    },\n  };\n});"
+      }
+    },
+    {
+      "name": "Salvar avaliação",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        500,
+        180
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "copy_evaluations",
+        "dataToSend": "autoMapInputData"
+      }
+    },
+    {
+      "name": "A cada 3 horas",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -900,
+        280
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 3,
+              "triggerAtMinute": 0
+            }
+          ]
+        },
+        "misfirePolicy": "skip"
+      },
+      "disabled": false
+    },
+    {
+      "name": "Sticky Note 20e8271f",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        100,
+        300
+      ],
+      "parameters": {
+        "content": "## Triagem rápida Hotmart\n\n- 10 envios para a versão A e 10 para a versão B.\n- A rodada para em 20 envios.\n- Cliques únicos indicam apenas qual versão é promissora.\n- Zero clique dos dois lados encerra a dupla como fraca.\n- Nenhuma copy vira campeã automaticamente nesta etapa.\n- Compras e receita continuam visíveis para diagnóstico.\n- PerfectPay não é lida enquanto estiver desativada.",
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Avaliar agora": {
+      "main": [
+        [
+          {
+            "node": "Carregar regras de avaliação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar regras de avaliação": {
+      "main": [
+        [
+          {
+            "node": "Buscar testes em andamento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar testes em andamento": {
+      "main": [
+        [
+          {
+            "node": "Carregar envios rastreados",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carregar envios rastreados": {
+      "main": [
+        [
+          {
+            "node": "Calcular resultado sem promover",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular resultado sem promover": {
+      "main": [
+        [
+          {
+            "node": "Salvar avaliação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A cada 3 horas": {
+      "main": [
+        [
+          {
+            "node": "Carregar regras de avaliação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [
+    {
+      "name": "Carregar testes ativos",
+      "nodeNames": [
+        "Carregar regras de avaliação",
+        "Buscar testes em andamento",
+        "Carregar envios rastreados"
+      ],
+      "description": "Reúne configurações, experimentos em andamento e somente os envios rastreados de cada versão."
+    },
+    {
+      "name": "Calcular decisão segura",
+      "nodeNames": [
+        "Calcular resultado sem promover",
+        "Salvar avaliação"
+      ],
+      "description": "Atualiza métricas, confiança e recomendação sem promover nenhuma copy automaticamente."
+    }
+  ],
+  "tags": []
+}

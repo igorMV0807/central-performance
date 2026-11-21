@@ -4,7 +4,7 @@
 
 ## Português
 
-Uma central operacional privada para acompanhar jornadas de recuperação de receita, desempenho de e-mails, eventos, alertas e experimentos em um só lugar.
+Um sistema completo de recuperação de receita e observabilidade operacional: webhooks, automações, PostgreSQL, testes E2E e uma central privada para acompanhar jornadas, e-mails, eventos, alertas e experimentos.
 
 O projeto transforma dados dispersos de automações comerciais em uma interface que ajuda a responder perguntas práticas:
 
@@ -25,6 +25,19 @@ O projeto transforma dados dispersos de automações comerciais em uma interface
 - autenticação e lista de usuários autorizados;
 - cálculos executados no servidor com cache de curta duração.
 
+### O que existe neste repositório
+
+| Parte | Conteúdo |
+|---|---|
+| `app/`, `components/`, `lib/` | dashboard Next.js, autenticação e métricas no servidor |
+| `automations/hotmart/` | 5 workflows n8n da jornada Hotmart |
+| `automations/perfectpay/` | 4 workflows n8n da jornada PerfectPay |
+| `automations/laboratory/` | 3 workflows do laboratório de copy e experimentos |
+| `supabase/` | 22 tabelas, 43 funções, 16 gatilhos, views e índices |
+| `tests/postman/` | coleção E2E Hotmart com 24 cenários |
+
+Os artefatos de backend são snapshots públicos sanitizados: preservam a lógica e a arquitetura, mas não carregam credenciais, dados reais, URLs de produção ou associações internas.
+
 ### Arquitetura
 
 ```mermaid
@@ -41,7 +54,7 @@ flowchart LR
   F --> K[Alertas e laboratório]
 ```
 
-Mais detalhes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Mais detalhes: [arquitetura](docs/ARCHITECTURE.md), [fluxos de eventos](docs/EVENT_FLOWS.md) e [implantação isolada](docs/DEPLOYMENT.md).
 
 ### Tecnologias
 
@@ -65,13 +78,13 @@ Esta versão pública não contém credenciais, arquivos `.env.local`, dados de 
 
 ### Contexto de portfólio
 
-Este repositório apresenta a arquitetura e a implementação da interface. Dados e resultados exibidos em demos devem ser sintéticos. Veja o [case do projeto](docs/PORTFOLIO_CASE.md) e o [roteiro de demonstração](docs/DEMO_SCRIPT.md).
+Este repositório apresenta o sistema completo em versão segura para portfólio. Dados e resultados exibidos em demos devem ser sintéticos. Veja o [case do projeto](docs/PORTFOLIO_CASE.md) e o [roteiro de demonstração](docs/DEMO_SCRIPT.md).
 
 ---
 
 ## English
 
-Central de Performance is a private operations dashboard for monitoring revenue-recovery journeys, email performance, payment events, alerts, and experiments in one place.
+Central de Performance is an end-to-end revenue-recovery and operations-observability system. It includes webhook ingestion, n8n automation, PostgreSQL business logic, E2E API tests, and a private dashboard for journeys, email performance, payment events, alerts, and experiments.
 
 It turns fragmented automation data into an interface that helps operators understand recovered revenue, active journeys, checkout issues, funnel performance, and conversion context.
 
@@ -95,6 +108,15 @@ Next.js 16, React 19, TypeScript, Tailwind CSS, Supabase Auth, PostgreSQL, Recha
 Use an isolated Supabase project with synthetic data only. Copy `.env.example` to `.env.local`, install dependencies, and run `npm run dev`. Never expose the service-role key to the browser.
 
 This public portfolio copy intentionally excludes secrets, customer data, production media, build artifacts, and installed dependencies.
+
+### Repository scope
+
+- 12 sanitized n8n workflows for Hotmart, PerfectPay, and the copy laboratory;
+- a structure-only Supabase/PostgreSQL snapshot with 22 tables, 43 functions, and 16 triggers;
+- 24 sanitized Hotmart E2E scenarios for Postman;
+- the complete authenticated Next.js operations dashboard.
+
+Use [the isolated deployment guide](docs/DEPLOYMENT.md) to understand how the pieces fit together. The exported backend files are reference snapshots and require security review before use in a new environment.
 
 ## License
 

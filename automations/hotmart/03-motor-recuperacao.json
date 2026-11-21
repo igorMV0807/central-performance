@@ -1,0 +1,2083 @@
+{
+  "name": "Motor de Recuperação - Hotmart",
+  "active": false,
+  "description": "Motor agendado de recuperação: seleciona jornadas vencidas, processa em série e envia até 3 contatos com claim atômico contra duplicidade.",
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": true,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        0
+      ],
+      "name": "Gatilho de agendamento"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "returnAll": true,
+        "orderBy": "last_event_created_at.asc",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "recovery_allowed",
+              "condition": "eq",
+              "keyValue": "={{ true }}"
+            },
+            {
+              "keyName": "recovered",
+              "condition": "eq",
+              "keyValue": "={{ false }}"
+            },
+            {
+              "keyName": "last_step_sent",
+              "condition": "lt",
+              "keyValue": "3"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        -840,
+        0
+      ],
+      "name": "Buscar Jornadas Recuperáveis"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ (() => {\n  const normalize = (value) => String(value ?? '').trim().toLowerCase();\n  const sameJourneyKey = $('Buscar Jornadas Recuperáveis').all()\n    .map((item) => item.json)\n    .filter((journey) =>\n      normalize(journey.buyer_email) === normalize($json.buyer_email) &&\n      Number(journey.product_id ?? 0) === Number($json.product_id ?? 0) &&\n      normalize(journey.offer_code) === normalize($json.offer_code)\n    );\n  const newestId = Math.max(...sameJourneyKey.map((journey) => Number(journey.id ?? 0)));\n  if (sameJourneyKey.length > 1 && Number($json.id ?? 0) !== newestId) return false;\n  const due = $json.next_step_at === null || $json.next_step_at === undefined || new Date($json.next_step_at).getTime() <= Date.now();\n  if (!due) return false;\n  const first = Number($json.last_step_sent || 0) === 0;\n  const waiting = String($json.current_status || $json.recovery_flow || '').trim().toUpperCase() === 'WAITING_PAYMENT';\n  if (!first || !waiting) return true;\n  const raw = $json.last_event_created_at ?? $json.created_at;\n  const numeric = Number(raw);\n  const eventTime = Number.isFinite(numeric) && numeric > 0 ? (numeric < 1000000000000 ? numeric * 1000 : numeric) : Date.parse(String(raw || ''));\n  return !Number.isFinite(eventTime) || Date.now() >= eventTime + 10 * 60 * 1000;\n})() }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -560,
+        0
+      ],
+      "name": "Está na Hora de Recuperar?"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ Number($json.last_step_sent || 0) }}",
+                    "rightValue": "={{ 0 }}",
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ETAPA 1"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ Number($json.last_step_sent || 0) }}",
+                    "rightValue": "={{ 1 }}",
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ETAPA 2"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ Number($json.last_step_sent || 0) }}",
+                    "rightValue": "={{ 2 }}",
+                    "operator": {
+                      "type": "number",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "ETAPA 3"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [
+        560,
+        0
+      ],
+      "name": "Qual etapa Enviar?"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "recovery_email_logs",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "journey_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            },
+            {
+              "keyName": "recovery_flow",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.recovery_flow }}"
+            },
+            {
+              "keyName": "step",
+              "condition": "eq",
+              "keyValue": "={{ 1 }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "SENT"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        480
+      ],
+      "name": "Buscar Envio Existente - Etapa 1",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        480
+      ],
+      "name": "Etapa 1 já foi enviada?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "email_subject",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"a sua cópia do material 📜\",\"WAITING_PAYMENT\":\"o seu pagamento ainda está pendente 🔒\",\"CANCELED\":\"o pagamento foi bloqueado 🚫\",\"DELAYED\":\"seu pagamento ficou em atraso 🌩️\",\"EXPIRED\":\"o prazo venceu 🌑\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_preheader",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"Vi que o pagamento não chegou a ser concluído...\",\"WAITING_PAYMENT\":\"O seu documento de pagamento ainda consta como pendente...\",\"CANCELED\":\"A tentativa foi cancelada, mas você pode tentar novamente.\",\"DELAYED\":\"Existe uma pendência no seu pedido, [nome].\",\"EXPIRED\":\"O pagamento expirou, mas você ainda pode fazer uma nova tentativa.\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_body",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"[nome], vi que o seu acesso ao material ficou interrompido antes da conclusão do pedido.\\n\\nSe foi só uma distração ou algum problema na tela de pagamento, está tudo certo. O seu pedido ainda pode ser concluído.\\n\\nEu deixei o acesso separado para você, mas ele só é liberado depois que a compra é finalizada.\\n\\nSe você ainda quer receber o material, conclua pelo link abaixo. 🙏\",\"WAITING_PAYMENT\":\"Você deu o primeiro passo, [nome], mas o pagamento do seu pedido ainda não apareceu como confirmado. ⏳\\n\\nSe você ainda deseja receber o material, falta apenas concluir essa etapa.\\n\\nAbra o seu pedido pelo link abaixo, confira o código ou a forma de pagamento e finalize quando estiver pronto.\",\"CANCELED\":\"[nome], acabei de receber a informação de que a sua tentativa de compra foi cancelada.\\n\\nIsso pode acontecer por recusa do cartão, limite, validação do banco ou uma falha momentânea no pagamento. Não significa que você fez algo errado. 🏦\\n\\nSe você ainda quer receber o material, tente novamente pelo link abaixo. Se aparecer a opção, você também pode escolher PIX ou usar outra forma de pagamento.\\n\\nNão deixe uma falha técnica encerrar uma decisão que você ainda quer concluir. ⚔️\",\"DELAYED\":\"[nome], apareceu uma pendência no pagamento do seu pedido.\\n\\nEnquanto essa situação não for regularizada, o pedido pode continuar sem confirmação e o acesso relacionado a ele pode permanecer pendente. 📉\\n\\nSe você ainda quer manter tudo em ordem, confira a situação pelo link abaixo e veja o que precisa ser resolvido.\\n\\nSe você já pagou, me responda para verificarmos.\",\"EXPIRED\":\"[nome], recebi o aviso de que o prazo do seu pagamento expirou.\\n\\nIsso encerrou aquela tentativa, mas não significa que você perdeu a possibilidade de receber o material. 🥀\\n\\nSe você ainda quer continuar, basta abrir uma nova tentativa pelo link abaixo.\\n\\nNão deixe um prazo vencido decidir por você.\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_button",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"CLIQUE AQUI PARA DESTRAVAR SEU ACESSO\",\"WAITING_PAYMENT\":\"CLIQUE AQUI PARA VER SEU CÓDIGO E PAGAR\",\"CANCELED\":\"CLIQUE AQUI PARA TENTAR DE NOVO\",\"DELAYED\":\"CLIQUE AQUI PARA REGULARIZAR SEU PEDIDO\",\"EXPIRED\":\"CLIQUE AQUI PARA REFAZER SEU PEDIDO\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_footer",
+              "value": "Miguel — Oração de São Miguel",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1400,
+        580
+      ],
+      "name": "Preparar E-mail - Etapa 1"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Qual etapa Enviar?').item.json.buyer_email }}",
+        "subject": "={{ $('Preparar E-mail - Etapa 1').item.json.email_subject }}",
+        "emailType": "html",
+        "message": "={{ (() => {\n    const p = $('Preparar E-mail - Etapa 1').item.json || {};\n    const token = String($('Reservar Envio - Etapa 1').item.json.tracking_token || '').trim();\n    const checkout = String($('Qual etapa Enviar?').item.json.checkout_url || 'https://example.invalid');\n    const url = token ? 'https://example.invalid' + encodeURIComponent(token) : checkout;\n    const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n    const paragraphs = String(p.email_body || '').split(/\\n\\n+/).map(x => '<p style=\"margin:0 0 16px\">' + esc(x).replace(/\\n/g,'<br>') + '</p>').join('');\n    const pre = esc(p.email_preheader || '');\n    const button = esc(p.email_button || 'ACESSAR MEU PEDIDO');\n    const footer = esc(p.email_footer || '');\n    return '<div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent\">' + pre + '</div>' +\n      '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#202124;font-size:16px;line-height:1.65\">' +\n      paragraphs +\n      '<div style=\"margin:24px 0;text-align:center\"><a href=\"' + esc(url) + '\" style=\"display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:8px\">' + button + '</a></div>' +\n      '<p style=\"margin:0 0 16px;font-size:13px;color:#5f6368\">Se o botão não abrir, use este link:<br><a href=\"' + esc(url) + '\">' + esc(url) + '</a></p>' +\n      '<p style=\"margin-top:24px\">' + footer + '</p></div>';\n  })() }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Oração de São Miguel"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1960,
+        580
+      ],
+      "name": "Enviar e-mail - Etapa 1",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "recovery_email_logs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Reservar Envio - Etapa 1').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "gmail_message_id",
+              "fieldValue": "={{ $('Enviar e-mail - Etapa 1').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "SENT"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 1').item.json.email_subject }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        580
+      ],
+      "name": "Registrar Envio - Etapa 1"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "={{ 1 }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ $now.setZone('America/Sao_Paulo').plus({ days: 1 }).set({ hour: 10, minute: 0, second: 0, millisecond: 0 }).toISO() }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2520,
+        480
+      ],
+      "name": "Atualizar Jornada - Etapa 1"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "recovery_email_logs",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "journey_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            },
+            {
+              "keyName": "recovery_flow",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.recovery_flow }}"
+            },
+            {
+              "keyName": "step",
+              "condition": "eq",
+              "keyValue": "={{ 2 }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "SENT"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        1040
+      ],
+      "name": "Buscar Envio Existente - Etapa 2",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        1040
+      ],
+      "name": "Etapa 2 já foi enviada?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "email_subject",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"sobre amanhã... ⏳\",\"WAITING_PAYMENT\":\"sobre amanhã de manhã ⏰\",\"CANCELED\":\"consegui uma nova condição para você ✨\",\"DELAYED\":\"essa pendência continua ⚠️\",\"EXPIRED\":\"deixei uma condição especial para você 🤫\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_preheader",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"Seu acesso ainda não foi concluído.\",\"WAITING_PAYMENT\":\"Se quiser usar o material amanhã, resolva a pendência hoje...\",\"CANCELED\":\"A tentativa de ontem falhou, então deixei uma nova opção disponível.\",\"DELAYED\":\"Seu pedido ainda precisa de uma ação para voltar ao normal.\",\"EXPIRED\":\"Seu pagamento expirou, mas existe uma nova tentativa disponível.\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_body",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"[nome], passando para te lembrar de uma coisa importante.\\n\\nSe você pretende usar o material no seu momento de oração amanhã, é melhor deixar o acesso resolvido hoje. 📿\\n\\nComo o pedido de ontem não foi concluído, o seu acesso continua pendente.\\n\\nSe ainda quiser continuar, conclua pelo link abaixo antes de encerrar o dia.\",\"WAITING_PAYMENT\":\"[nome], se você pretende usar o material no seu momento de oração amanhã cedo, é melhor resolver a pendência hoje. 🌄\\n\\nO pagamento ainda não apareceu como confirmado e, sem essa confirmação, o acesso não é liberado.\\n\\nAbra o seu pedido pelo link abaixo e conclua a etapa que ficou pendente.\",\"CANCELED\":\"[nome], ontem o seu pagamento não foi concluído. Eu sei como é frustrante chegar até o final e ver a transação falhar. 😔\\n\\nPor isso, deixei uma nova condição disponível para você tentar novamente: R$ 34,55. 🔓\\n\\nSe o problema foi limite, cartão ou alguma validação do banco, você pode abrir o link e escolher outra forma de pagamento disponível.\\n\\nSe ainda fizer sentido para você, use o botão abaixo.\",\"DELAYED\":\"[nome], a pendência no pagamento continua aparecendo no sistema.\\n\\nDeixar isso pela metade pode fazer o pedido permanecer sem confirmação por mais tempo. 🛑\\n\\nSe você ainda quer concluir, abra o link abaixo e confira a situação agora.\\n\\nSe já resolveu ou o banco confirmou o pagamento, me responda para verificarmos.\",\"EXPIRED\":\"[nome], como o pagamento anterior expirou, aquela tentativa não pode mais ser concluída.\\n\\nMas eu deixei uma nova condição disponível para você refazer o pedido por R$ 34,55. 🕊️\\n\\nSe você ainda quer receber o material, abra o link abaixo e veja a nova tentativa já pronta para continuar.\\n\\nNão precisa voltar ao início nem procurar outro caminho.\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_button",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"CLIQUE AQUI PARA GARANTIR SEU ACESSO\",\"WAITING_PAYMENT\":\"CLIQUE AQUI PARA ACESSAR SEU CÓDIGO\",\"CANCELED\":\"CLIQUE AQUI PARA RESGATAR SEU ACESSO\",\"DELAYED\":\"CLIQUE AQUI PARA VER E REGULARIZAR\",\"EXPIRED\":\"CLIQUE AQUI PARA ACESSAR A NOVA CONDIÇÃO\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_footer",
+              "value": "Miguel — Oração de São Miguel",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1400,
+        1140
+      ],
+      "name": "Preparar E-mail - Etapa 2"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Qual etapa Enviar?').item.json.buyer_email }}",
+        "subject": "={{ $('Preparar E-mail - Etapa 2').item.json.email_subject }}",
+        "emailType": "html",
+        "message": "={{ (() => {\n    const p = $('Preparar E-mail - Etapa 2').item.json || {};\n    const token = String($('Reservar Envio - Etapa 2').item.json.tracking_token || '').trim();\n    const checkout = String($('Qual etapa Enviar?').item.json.checkout_url || 'https://example.invalid');\n    const url = token ? 'https://example.invalid' + encodeURIComponent(token) : checkout;\n    const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n    const paragraphs = String(p.email_body || '').split(/\\n\\n+/).map(x => '<p style=\"margin:0 0 16px\">' + esc(x).replace(/\\n/g,'<br>') + '</p>').join('');\n    const pre = esc(p.email_preheader || '');\n    const button = esc(p.email_button || 'ACESSAR MEU PEDIDO');\n    const footer = esc(p.email_footer || '');\n    return '<div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent\">' + pre + '</div>' +\n      '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#202124;font-size:16px;line-height:1.65\">' +\n      paragraphs +\n      '<div style=\"margin:24px 0;text-align:center\"><a href=\"' + esc(url) + '\" style=\"display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:8px\">' + button + '</a></div>' +\n      '<p style=\"margin:0 0 16px;font-size:13px;color:#5f6368\">Se o botão não abrir, use este link:<br><a href=\"' + esc(url) + '\">' + esc(url) + '</a></p>' +\n      '<p style=\"margin-top:24px\">' + footer + '</p></div>';\n  })() }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Oração de São Miguel"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1960,
+        1140
+      ],
+      "name": "Enviar e-mail - Etapa 2",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "recovery_email_logs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Reservar Envio - Etapa 2').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "gmail_message_id",
+              "fieldValue": "={{ $('Enviar e-mail - Etapa 2').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "SENT"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 2').item.json.email_subject }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        1140
+      ],
+      "name": "Registrar Envio - Etapa 2"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "={{ 2 }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ $now.setZone('America/Sao_Paulo').plus({ days: 1 }).set({ hour: 10, minute: 0, second: 0, millisecond: 0 }).toISO() }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2520,
+        1040
+      ],
+      "name": "Atualizar Jornada - Etapa 2"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "recovery_email_logs",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "journey_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            },
+            {
+              "keyName": "recovery_flow",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.recovery_flow }}"
+            },
+            {
+              "keyName": "step",
+              "condition": "eq",
+              "keyValue": "={{ 3 }}"
+            },
+            {
+              "keyName": "status",
+              "condition": "eq",
+              "keyValue": "SENT"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        840,
+        1600
+      ],
+      "name": "Buscar Envio Existente - Etapa 3",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1120,
+        1600
+      ],
+      "name": "Etapa 3 já foi enviada?"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "email_subject",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"vou liberar essa reserva ⚠️\",\"WAITING_PAYMENT\":\"último lembrete do seu pagamento 💔\",\"CANCELED\":\"vai deixar o cartão decidir? 💳\",\"DELAYED\":\"último aviso sobre a pendência 🗡️\",\"EXPIRED\":\"última chance de refazer o pedido 👋\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_preheader",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"Esta é a última mensagem sobre o seu pedido, [nome]...\",\"WAITING_PAYMENT\":\"Se o prazo expirar, será necessário gerar um novo pedido.\",\"CANCELED\":\"Esta é a última mensagem sobre a compra cancelada.\",\"DELAYED\":\"Vou encerrar os lembretes sobre esse pagamento.\",\"EXPIRED\":\"Depois desta mensagem, vou encerrar os lembretes.\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_body",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"[nome], esta é a última vez que vou te escrever sobre esse pedido.\\n\\nComo a compra não foi concluída, não vou continuar mantendo essa tentativa como pendente. 🥀\\n\\nSe você ainda quiser receber o material, esta é a hora de concluir o pedido pelo link abaixo.\\n\\nSe decidiu não continuar, não precisa fazer nada. Que Deus te abençoe. 🕯️\",\"WAITING_PAYMENT\":\"Eu preciso ser direto com você, [nome].\\n\\nO pagamento do seu pedido ainda está pendente. Se o prazo do documento expirar, será necessário gerar uma nova tentativa. ⏳\\n\\nSe você ainda quer receber o material, confira o pagamento agora pelo link abaixo.\\n\\nA decisão final está nas suas mãos. 🕊️\",\"CANCELED\":\"[nome], quero te fazer uma última pergunta.\\n\\nA sua tentativa foi cancelada por uma barreira de pagamento, mas isso não precisa decidir por você. 🗝️\\n\\nSe ainda quiser receber o material, deixei a condição final de R$ 31,92 disponível no link abaixo. Você pode tentar PIX ou outra forma de pagamento que apareça para você.\\n\\nSe não quiser continuar, tudo bem. Esta será a última mensagem sobre esse pedido.\",\"DELAYED\":\"[nome], este é o último lembrete sobre a pendência do seu pagamento.\\n\\nO pedido ainda não voltou ao estado normal e, sem a regularização, ele pode continuar sem confirmação. 🌑\\n\\nSe você ainda quer resolver, use o link abaixo agora e confira a situação.\\n\\nSe já resolveu ou decidiu não continuar, pode ignorar esta mensagem.\",\"EXPIRED\":\"[nome], esta é a última mensagem sobre o pagamento que expirou.\\n\\nA tentativa anterior já terminou, mas ainda deixei uma condição final de R$ 31,92 para você refazer o pedido. 🕯️\\n\\nSe você ainda quer receber o material, use o link abaixo enquanto essa condição estiver disponível no checkout.\\n\\nSe não quiser continuar, não precisa fazer nada. Vou encerrar os lembretes por aqui.\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_button",
+              "value": "={{ (() => { const flow = String($('Qual etapa Enviar?').item.json.recovery_flow || '').trim().toUpperCase(); const name = String($('Qual etapa Enviar?').item.json.buyer_name || 'cliente').trim() || 'cliente'; const value = {\"ABANDONED\":\"CLIQUE AQUI PARA CONCLUIR SEU PEDIDO\",\"WAITING_PAYMENT\":\"CLIQUE AQUI PARA CONCLUIR O PAGAMENTO\",\"CANCELED\":\"CLIQUE AQUI PARA FAZER A ÚLTIMA TENTATIVA\",\"DELAYED\":\"CLIQUE AQUI PARA REGULARIZAR AGORA\",\"EXPIRED\":\"CLIQUE AQUI PARA REFAZER O PEDIDO\"}[flow] ?? ''; return String(value).split('[nome]').join(name); })() }}",
+              "type": "string"
+            },
+            {
+              "name": "email_footer",
+              "value": "Miguel — Oração de São Miguel",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        1400,
+        1700
+      ],
+      "name": "Preparar E-mail - Etapa 3"
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "={{ $('Qual etapa Enviar?').item.json.buyer_email }}",
+        "subject": "={{ $('Preparar E-mail - Etapa 3').item.json.email_subject }}",
+        "emailType": "html",
+        "message": "={{ (() => {\n    const p = $('Preparar E-mail - Etapa 3').item.json || {};\n    const token = String($('Reservar Envio - Etapa 3').item.json.tracking_token || '').trim();\n    const checkout = String($('Qual etapa Enviar?').item.json.checkout_url || 'https://example.invalid');\n    const url = token ? 'https://example.invalid' + encodeURIComponent(token) : checkout;\n    const esc = (s) => String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n    const paragraphs = String(p.email_body || '').split(/\\n\\n+/).map(x => '<p style=\"margin:0 0 16px\">' + esc(x).replace(/\\n/g,'<br>') + '</p>').join('');\n    const pre = esc(p.email_preheader || '');\n    const button = esc(p.email_button || 'ACESSAR MEU PEDIDO');\n    const footer = esc(p.email_footer || '');\n    return '<div style=\"display:none;max-height:0;overflow:hidden;opacity:0;color:transparent\">' + pre + '</div>' +\n      '<div style=\"font-family:Arial,sans-serif;max-width:600px;margin:0 auto;color:#202124;font-size:16px;line-height:1.65\">' +\n      paragraphs +\n      '<div style=\"margin:24px 0;text-align:center\"><a href=\"' + esc(url) + '\" style=\"display:inline-block;background:#111827;color:#ffffff;text-decoration:none;font-weight:700;padding:14px 22px;border-radius:8px\">' + button + '</a></div>' +\n      '<p style=\"margin:0 0 16px;font-size:13px;color:#5f6368\">Se o botão não abrir, use este link:<br><a href=\"' + esc(url) + '\">' + esc(url) + '</a></p>' +\n      '<p style=\"margin-top:24px\">' + footer + '</p></div>';\n  })() }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "Oração de São Miguel"
+        }
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1960,
+        1700
+      ],
+      "name": "Enviar e-mail - Etapa 3",
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "recovery_email_logs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Reservar Envio - Etapa 3').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "gmail_message_id",
+              "fieldValue": "={{ $('Enviar e-mail - Etapa 3').item.json.id }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "SENT"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 3').item.json.email_subject }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        1700
+      ],
+      "name": "Registrar Envio - Etapa 3"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "last_step_sent",
+              "fieldValue": "={{ 3 }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2520,
+        1600
+      ],
+      "name": "Atualizar Jornada - Etapa 3"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "name": "Processar Jornada Individualmente",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -280,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ String($json.status || '').trim().toUpperCase() === 'SENT' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Envio existente está SENT? - Etapa 1",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1400,
+        380
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "recovery_email_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "journey_id",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.recovery_flow }}"
+            },
+            {
+              "fieldId": "step",
+              "fieldValue": "={{ 1 }}"
+            },
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 1').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "CLAIMED"
+            },
+            {
+              "fieldId": "checkout_url",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.checkout_url }}"
+            }
+          ]
+        }
+      },
+      "name": "Reservar Envio - Etapa 1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        580
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ String($json.status || '').trim().toUpperCase() === 'SENT' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Envio existente está SENT? - Etapa 2",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1400,
+        940
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "recovery_email_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "journey_id",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.recovery_flow }}"
+            },
+            {
+              "fieldId": "step",
+              "fieldValue": "={{ 2 }}"
+            },
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 2').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "CLAIMED"
+            },
+            {
+              "fieldId": "checkout_url",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.checkout_url }}"
+            }
+          ]
+        }
+      },
+      "name": "Reservar Envio - Etapa 2",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        1140
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ String($json.status || '').trim().toUpperCase() === 'SENT' }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Envio existente está SENT? - Etapa 3",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1400,
+        1500
+      ]
+    },
+    {
+      "parameters": {
+        "tableId": "recovery_email_logs",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "journey_id",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.id }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.recovery_flow }}"
+            },
+            {
+              "fieldId": "step",
+              "fieldValue": "={{ 3 }}"
+            },
+            {
+              "fieldId": "buyer_email",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.buyer_email }}"
+            },
+            {
+              "fieldId": "subject",
+              "fieldValue": "={{ $('Preparar E-mail - Etapa 3').item.json.email_subject }}"
+            },
+            {
+              "fieldId": "status",
+              "fieldValue": "CLAIMED"
+            },
+            {
+              "fieldId": "checkout_url",
+              "fieldValue": "={{ $('Qual etapa Enviar?').item.json.checkout_url }}"
+            }
+          ]
+        }
+      },
+      "name": "Reservar Envio - Etapa 3",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1680,
+        1700
+      ],
+      "onError": "continueErrorOutput"
+    },
+    {
+      "parameters": {
+        "content": "## 1. Seleção de jornadas\nA cada 5 minutos, busca recuperações abertas, confere `next_step_at` e processa uma jornada por vez.",
+        "height": 200,
+        "width": 980,
+        "color": 5
+      },
+      "name": "⏰ Seleção de Jornadas",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1180,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 2. Etapa 1\nConsulta o log, evita duplicidade, reserva o envio com `CLAIMED`, envia o e-mail e agenda a próxima etapa.",
+        "height": 200,
+        "width": 1300,
+        "color": 4
+      },
+      "name": "✉️ Etapa 1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        240
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 3. Etapa 2\nRepete a proteção de idempotência/concorrência, envia o segundo contato e agenda a etapa final.",
+        "height": 200,
+        "width": 1500,
+        "color": 6
+      },
+      "name": "✉️ Etapa 2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        800
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## 4. Etapa 3\nÚltimo contato da jornada. Após o envio, define `last_step_sent = 3` e encerra o ciclo de recuperação.",
+        "height": 200,
+        "width": 1320,
+        "color": 3
+      },
+      "name": "✉️ Etapa 3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        780,
+        1360
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "hotmart_events",
+        "limit": 1,
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "event_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Processar Jornada Individualmente').item.json.last_event_id }}"
+            }
+          ]
+        }
+      },
+      "name": "Buscar Dados do Checkout",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "name": "id",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.id }}",
+              "type": "number"
+            },
+            {
+              "name": "buyer_email",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.buyer_email }}",
+              "type": "string"
+            },
+            {
+              "name": "buyer_name",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.buyer_name }}",
+              "type": "string"
+            },
+            {
+              "name": "product_id",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.product_id }}",
+              "type": "number"
+            },
+            {
+              "name": "offer_code",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.offer_code }}",
+              "type": "string"
+            },
+            {
+              "name": "transaction_id",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.transaction_id ?? '' }}",
+              "type": "string"
+            },
+            {
+              "name": "current_status",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.current_status }}",
+              "type": "string"
+            },
+            {
+              "name": "recovery_allowed",
+              "value": "={{ Boolean($('Processar Jornada Individualmente').item.json.recovery_allowed) }}",
+              "type": "boolean"
+            },
+            {
+              "name": "recovery_flow",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.recovery_flow }}",
+              "type": "string"
+            },
+            {
+              "name": "last_step_sent",
+              "value": "={{ Number($('Processar Jornada Individualmente').item.json.last_step_sent || 0) }}",
+              "type": "number"
+            },
+            {
+              "name": "next_step_at",
+              "value": "={{ $('Processar Jornada Individualmente').item.json.next_step_at ?? '' }}",
+              "type": "string"
+            },
+            {
+              "name": "checkout_url",
+              "value": "={{ (() => { const base = 'https://example.invalid'; const j = $('Processar Jornada Individualmente').item.json; const b = $json.payload_raw?.data?.buyer || {}; const params = []; const add = (k,v) => { if (v !== undefined && v !== null && String(v).trim() !== '') params.push(k + '=' + encodeURIComponent(String(v).trim())); }; add('name', b.name || j.buyer_name); add('email', b.email || j.buyer_email); add('doc', b.document); add('zip', b.address?.zipcode); let area = String(b.checkout_phone_code || '').replace(/\\D/g,''); let phone = String(b.checkout_phone || b.phone || '').replace(/\\D/g,''); const country = String(b.address?.country_iso || $json.payload_raw?.data?.purchase?.checkout_country?.iso || $json.payload_raw?.data?.checkout_country?.iso || '').toUpperCase(); if (!area && country === 'BR' && (phone.length === 10 || phone.length === 11)) area = phone.slice(0,2); if (area && phone.startsWith(area) && phone.length > area.length + 7) phone = phone.slice(area.length); add('phoneac', area); add('phonenumber', phone); const flow = String(j.recovery_flow || '').trim().toUpperCase(); const lastStep = Number(j.last_step_sent || 0); const eligible = ['ABANDONED','CANCELED','EXPIRED'].includes(flow); const coupon = eligible ? (lastStep === 1 ? 'CUPOM1' : lastStep === 2 ? 'CUPOM2' : '') : ''; add('offDiscount', coupon); return base + (params.length ? '&' + params.join('&') : ''); })() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "name": "Montar Checkout Pré-preenchido",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.5,
+      "position": [
+        280,
+        0
+      ]
+    },
+    {
+      "name": "Buscar Compra Aprovada - Segurança Final",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -420
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Processar Jornada Individualmente').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Processar Jornada Individualmente').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Processar Jornada Individualmente').item.json.offer_code }}"
+            },
+            {
+              "keyName": "current_status",
+              "condition": "eq",
+              "keyValue": "APPROVED"
+            }
+          ]
+        }
+      },
+      "notes": "Trava final: impede qualquer recuperação quando já existe compra aprovada do mesmo cliente, produto e oferta.",
+      "alwaysOutputData": true
+    },
+    {
+      "name": "Compra aprovada bloqueia envio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        280,
+        -420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Buscar Compra Completa - Segurança Final",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -420
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "purchase_journeys",
+        "limit": 1,
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "buyer_email",
+              "condition": "eq",
+              "keyValue": "={{ $('Processar Jornada Individualmente').item.json.buyer_email }}"
+            },
+            {
+              "keyName": "product_id",
+              "condition": "eq",
+              "keyValue": "={{ $('Processar Jornada Individualmente').item.json.product_id }}"
+            },
+            {
+              "keyName": "offer_code",
+              "condition": "eq",
+              "keyValue": "={{ $('Processar Jornada Individualmente').item.json.offer_code }}"
+            },
+            {
+              "keyName": "current_status",
+              "condition": "eq",
+              "keyValue": "COMPLETED"
+            }
+          ]
+        }
+      },
+      "notes": "Complementa a trava final para compras que já avançaram de APPROVED para COMPLETE.",
+      "alwaysOutputData": true
+    },
+    {
+      "name": "Compra completa bloqueia envio?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        840,
+        -420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.id !== undefined && $json.id !== null }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Desativar Jornada após Compra",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        1120,
+        -520
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "purchase_journeys",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Processar Jornada Individualmente').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "recovery_allowed",
+              "fieldValue": "={{ false }}"
+            },
+            {
+              "fieldId": "recovery_flow",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "next_step_at",
+              "fieldValue": "={{ null }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "notes": "Desativa somente a jornada que seria enviada; não altera a compra aprovada nem os logs.",
+      "alwaysOutputData": true
+    },
+    {
+      "name": "Registrar Falha - Etapa 1",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        720
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "recovery_email_logs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Reservar Envio - Etapa 1').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "FAILED"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Registrar Falha - Etapa 2",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        1280
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "recovery_email_logs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Reservar Envio - Etapa 2').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "FAILED"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Registrar Falha - Etapa 3",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        2240,
+        1840
+      ],
+      "parameters": {
+        "operation": "update",
+        "tableId": "recovery_email_logs",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $('Reservar Envio - Etapa 3').item.json.id }}"
+            }
+          ]
+        },
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "status",
+              "fieldValue": "FAILED"
+            },
+            {
+              "fieldId": "sent_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gatilho de agendamento": {
+      "main": [
+        [
+          {
+            "node": "Buscar Jornadas Recuperáveis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Jornadas Recuperáveis": {
+      "main": [
+        [
+          {
+            "node": "Está na Hora de Recuperar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qual etapa Enviar?": {
+      "main": [
+        [
+          {
+            "node": "Buscar Envio Existente - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Envio Existente - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Envio Existente - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Envio Existente - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Etapa 1 já foi enviada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etapa 1 já foi enviada?": {
+      "main": [
+        [
+          {
+            "node": "Envio existente está SENT? - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar E-mail - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar e-mail - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Registrar Envio - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar Falha - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Envio - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Envio Existente - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Etapa 2 já foi enviada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etapa 2 já foi enviada?": {
+      "main": [
+        [
+          {
+            "node": "Envio existente está SENT? - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar E-mail - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar e-mail - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Registrar Envio - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar Falha - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Envio - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Envio Existente - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Etapa 3 já foi enviada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Etapa 3 já foi enviada?": {
+      "main": [
+        [
+          {
+            "node": "Envio existente está SENT? - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preparar E-mail - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar e-mail - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Registrar Envio - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar Falha - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Envio - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Está na Hora de Recuperar?": {
+      "main": [
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Jornada - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envio existente está SENT? - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar E-mail - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Reservar Envio - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar Envio - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Enviar e-mail - Etapa 1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envio existente está SENT? - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar E-mail - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Reservar Envio - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar Envio - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Enviar e-mail - Etapa 2",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envio existente está SENT? - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Jornada - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar E-mail - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Reservar Envio - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reservar Envio - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Enviar e-mail - Etapa 3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Dados do Checkout": {
+      "main": [
+        [
+          {
+            "node": "Montar Checkout Pré-preenchido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar Checkout Pré-preenchido": {
+      "main": [
+        [
+          {
+            "node": "Qual etapa Enviar?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Processar Jornada Individualmente": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Buscar Compra Aprovada - Segurança Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Compra Aprovada - Segurança Final": {
+      "main": [
+        [
+          {
+            "node": "Compra aprovada bloqueia envio?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compra aprovada bloqueia envio?": {
+      "main": [
+        [
+          {
+            "node": "Desativar Jornada após Compra",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Compra Completa - Segurança Final",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar Compra Completa - Segurança Final": {
+      "main": [
+        [
+          {
+            "node": "Compra completa bloqueia envio?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Compra completa bloqueia envio?": {
+      "main": [
+        [
+          {
+            "node": "Desativar Jornada após Compra",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Buscar Dados do Checkout",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Desativar Jornada após Compra": {
+      "main": [
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Falha - Etapa 1": {
+      "main": [
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Falha - Etapa 2": {
+      "main": [
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar Falha - Etapa 3": {
+      "main": [
+        [
+          {
+            "node": "Processar Jornada Individualmente",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "tags": []
+}

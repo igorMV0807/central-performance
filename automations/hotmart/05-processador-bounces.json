@@ -1,0 +1,226 @@
+{
+  "name": "[HOTMART] 05 - Processador de Bounces",
+  "active": false,
+  "description": "",
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true
+  },
+  "nodes": [
+    {
+      "name": "Receber retornos de entrega",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        96
+      ],
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "authentication": "oAuth2",
+        "event": "messageReceived",
+        "simple": false,
+        "maxResults": 20,
+        "filters": {
+          "includeSpamTrash": false,
+          "includeDrafts": false,
+          "readStatus": "unread",
+          "sender": "demo@example.com",
+          "q": "subject:\"Delivery Status Notification\""
+        },
+        "options": {
+          "downloadAttachments": false
+        }
+      }
+    },
+    {
+      "name": "Classificar bounce",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        96
+      ],
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "language": "javaScript",
+        "jsCode": "\nconst source = $json || {};\nconst raw = String(source.text || source.html || source.textAsHtml || '');\nconst recipientMatch =\n  raw.match(/(?:to|para)\\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,})/i) ||\n  raw.match(/delivered to\\s+([A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,})/i);\nconst recipient = recipientMatch ? recipientMatch[1].trim().toLowerCase() : '';\nconst hard = /550\\s+5\\.1\\.1|Address not found|does not exist|NoSuchUser/i.test(raw);\nconst soft = /452\\s+4\\.2\\.2|Recipient inbox full|out of storage|OverQuotaTemp/i.test(raw);\nreturn {\n  json: {\n    gmail_message_id: String(source.id || ''),\n    recipient,\n    is_hard_bounce: hard && Boolean(recipient),\n    is_soft_bounce: soft && Boolean(recipient),\n    reason: hard ? 'hard_bounce' : (soft ? 'soft_bounce' : 'other')\n  }\n};\n"
+      }
+    },
+    {
+      "name": "É hard bounce?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.is_hard_bounce }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "name": "Registrar supressão",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "create",
+        "tableId": "email_suppressions",
+        "dataToSend": "defineBelow",
+        "fieldsUi": {
+          "fieldValues": [
+            {
+              "fieldId": "email",
+              "fieldValue": "={{ $json.recipient }}"
+            },
+            {
+              "fieldId": "platform",
+              "fieldValue": "global"
+            },
+            {
+              "fieldId": "reason",
+              "fieldValue": "hard_bounce"
+            },
+            {
+              "fieldId": "source",
+              "fieldValue": "gmail_dsn"
+            },
+            {
+              "fieldId": "active",
+              "fieldValue": "={{ true }}"
+            },
+            {
+              "fieldId": "metadata",
+              "fieldValue": "={{ { gmail_message_id: $json.gmail_message_id } }}"
+            },
+            {
+              "fieldId": "suppressed_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            },
+            {
+              "fieldId": "updated_at",
+              "fieldValue": "={{ $now.toISO() }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "name": "Marcar retorno processado",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "markAsRead",
+        "authentication": "oAuth2",
+        "messageId": "={{ $('Classificar bounce').item.json.gmail_message_id }}"
+      }
+    },
+    {
+      "name": "Marcar retorno sem supressão",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        672,
+        192
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "markAsRead",
+        "authentication": "oAuth2",
+        "messageId": "={{ $('Classificar bounce').item.json.gmail_message_id }}"
+      }
+    }
+  ],
+  "connections": {
+    "Receber retornos de entrega": {
+      "main": [
+        [
+          {
+            "node": "Classificar bounce",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classificar bounce": {
+      "main": [
+        [
+          {
+            "node": "É hard bounce?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É hard bounce?": {
+      "main": [
+        [
+          {
+            "node": "Registrar supressão",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Marcar retorno sem supressão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar supressão": {
+      "main": [
+        [
+          {
+            "node": "Marcar retorno processado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "nodeGroups": [],
+  "tags": []
+}
